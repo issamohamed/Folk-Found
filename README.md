@@ -63,11 +63,11 @@ npm run build && npx wrangler pages deploy dist
 Cloudflare Pages can build straight from this repository instead. Connect it under
 **Workers & Pages → Create → Pages → Connect to Git**, then set:
 
-| Setting | Value |
-| --- | --- |
-| Build command | `npm run build` |
-| Build output directory | `dist` |
-| Node version | `20` or newer (`NODE_VERSION` environment variable) |
+| Setting                | Value                                               |
+| ---------------------- | --------------------------------------------------- |
+| Build command          | `npm run build`                                     |
+| Build output directory | `dist`                                              |
+| Node version           | `20` or newer (`NODE_VERSION` environment variable) |
 
 `functions/` is picked up automatically as Pages Functions. Add `GROQ_API_KEY` as an
 encrypted environment variable and bind the `FOLKLORE_CACHE` KV namespace under the
