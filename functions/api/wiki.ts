@@ -15,11 +15,8 @@ interface CachedSummary {
   fetchedAt: string;
 }
 
-/**
- * The "Read more on Wikipedia" card. It is a doorway to going deeper, never a
- * substitute for the story the prose already told, so it carries one line and
- * one link and nothing more.
- */
+/** The "Read more on Wikipedia" card: one line and one link, never a substitute
+ *  for the prose above it. */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let body: { regionCode?: unknown; era?: unknown; entryKey?: unknown };
   try {
@@ -34,9 +31,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   if (!isEraId(era)) return json({ error: 'Unknown era' }, 400);
 
-  // Focused on one item, the card must be that item's article or none at all —
-  // falling through to a neighbour's would be a quiet lie about what the reader
-  // asked to see.
+  // Focused on one item, the card must be that item's article or none at all.
   const focused = typeof entryKey === 'string' ? data.items[entryKey] : null;
   if (typeof entryKey === 'string' && !focused) {
     return json({ error: 'Unknown entry' }, 400);
@@ -45,9 +40,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const items = focused ? [focused] : authoritativeItems(regionCode, era);
   if (!items || items.length === 0) return json({ summary: null });
 
-  const cacheKey = focused
-    ? `wiki:entry:${entryKey}`
-    : `wiki:${regionCode}:${era}`;
+  const cacheKey = focused ? `wiki:entry:${entryKey}` : `wiki:${regionCode}:${era}`;
 
   const cached = await env.FOLKLORE_CACHE.get<CachedSummary>(cacheKey, 'json');
   if (cached) {
@@ -56,10 +49,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     });
   }
 
-  // Titles are resolved from the bundled data rather than the request, so this
-  // endpoint cannot be used to proxy arbitrary Wikipedia pages. The region's
-  // items are tried in order and the first with a live article wins — a dead
-  // link on the lead item costs the region its card otherwise.
+  // Titles come from the bundled data, not the request, so this cannot proxy
+  // arbitrary pages. Items are tried in order: a dead link on the lead item
+  // would otherwise cost the region its card.
   const byTitle = new Map(items.map((item) => [decodeURIComponent(item.wiki), item]));
 
   let summary: WikiSummary | null = null;

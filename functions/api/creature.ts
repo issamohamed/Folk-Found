@@ -1,10 +1,4 @@
-import {
-  DIRECTIVE_VERSION,
-  data,
-  json,
-  methodNotAllowed,
-  type Env,
-} from '../_lib/env';
+import { DIRECTIVE_VERSION, data, json, methodNotAllowed, type Env } from '../_lib/env';
 import {
   ITEM_WORD_MAX,
   ITEM_WORD_MIN,

@@ -41,9 +41,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const items = focused ? [focused] : authoritativeItems(regionCode, era);
   if (!items || items.length === 0) return json({ images: [] });
 
-  const cacheKey = focused
-    ? `img:entry:${entryKey}`
-    : `img:${regionCode}:${era}`;
+  const cacheKey = focused ? `img:entry:${entryKey}` : `img:${regionCode}:${era}`;
 
   const cached = await env.FOLKLORE_CACHE.get<CachedImages>(cacheKey, 'json');
   if (cached) {

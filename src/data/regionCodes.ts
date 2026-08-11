@@ -1,13 +1,10 @@
 import { ISO_NUMERIC_TO_ALPHA2 } from './isoNumeric';
 
 /**
- * Bridges geography ids to folklore.json region keys.
+ * Atlas ids to region keys. Neither atlas uses the data file's keys:
+ * countries-50m is ISO 3166-1 numeric, states-10m is FIPS.
  *
- * Two atlases feed the map and neither uses the keys folklore.json uses:
- *   - world-atlas countries-50m identifies countries by ISO 3166-1 *numeric* id
- *   - us-atlas states-10m identifies states by *FIPS* id
- *
- * Everything below is pure translation. No region data lives here.
+ * Pure translation — no region data lives here.
  */
 
 /** Country codes where the atlas and folklore.json disagree on the key. */
@@ -85,12 +82,10 @@ const FIPS_TO_REGION: Readonly<Record<string, string>> = {
 };
 
 /**
- * Regions whose country shape exists but is completely covered by a more
- * detailed layer, so it can never receive a click. The US landmass is fully
- * tiled by the states layer, yet folklore.json holds distinct country-level
- * data for `US` (thunderbird, wendigo, skinwalker, jersey_devil). Its shape is
- * drawn inert and the region is reached through the centroid marker layer
- * instead, so it is never stranded.
+ * Regions whose shape is completely covered by a more detailed layer and so can
+ * never take a click. The US landmass is fully tiled by the states layer, yet
+ * `US` has its own country-level data; its shape is drawn inert and the region
+ * is reached through the centroid marker instead.
  */
 export const OCCLUDED_BY_DETAIL_LAYER: ReadonlySet<string> = new Set(['US']);
 

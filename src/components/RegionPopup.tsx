@@ -11,14 +11,8 @@ interface RegionPopupProps {
   onClose: () => void;
 }
 
-/**
- * What the panel says when the writing does not arrive.
- *
- * Each one names the situation and stops. The creatures listed above are read
- * from entities.json and are always there, so none of these is an empty state —
- * the reader still has the region's roll in front of them, and the wording
- * points back at it rather than apologising.
- */
+/** What the panel says when the writing does not arrive. The creature roll is
+ *  always there, so none of these is an empty state; each points back at it. */
 const FAILURE_TEXT: Record<DescriptionFailure, string> = {
   'rate-limit':
     'The writing desk is busy just now. The creatures above are this place’s own — the full entry will come with a moment’s patience.',
@@ -31,13 +25,10 @@ const FAILURE_TEXT: Record<DescriptionFailure, string> = {
 };
 
 /**
- * Top to bottom: region name, era label, the creature roll, the prose, the
- * images with their attribution, then the wiki card.
+ * Region name, era, the creature roll, the prose, the images, the wiki card.
  *
- * The roll is both an index and a control. Picking a name out of it narrows
- * everything below to that one creature — its own entry, its own pictures, its
- * own article — while the roll itself stays put, so moving between creatures is
- * one click and going back is one more.
+ * The roll is both index and control: picking a name narrows everything below
+ * to that creature while the roll itself stays put.
  */
 export default function RegionPopup({
   view,
@@ -45,24 +36,23 @@ export default function RegionPopup({
   onFocusChange,
   onClose,
 }: RegionPopupProps) {
-  const focused = focusKey ? (view.items.find((item) => item.key === focusKey) ?? null) : null;
+  const focused = focusKey
+    ? (view.items.find((item) => item.key === focusKey) ?? null)
+    : null;
 
   const description = useDescription(view, focused ? focused.key : null);
-  const { images, summary, summaryLabel } = useEnrichment(view, focused ? focused.key : null);
+  const { images, summary, summaryLabel } = useEnrichment(
+    view,
+    focused ? focused.key : null,
+  );
 
-  /**
-   * Images that 404'd, were withdrawn, or refused a hotlink after the endpoint
-   * had already handed us their URL. Dropping them here rather than letting the
-   * browser draw a broken frame is the difference between a panel that looks
-   * incomplete and one that simply has no plates — and roughly one entry in
-   * twelve links to a page that no longer exists.
-   */
+  // Images that 404'd or refused a hotlink after the endpoint handed us their
+  // URL. Dropping them beats letting the browser draw a broken frame.
   const [brokenImages, setBrokenImages] = useState<ReadonlySet<string>>(new Set());
   useEffect(() => setBrokenImages(new Set()), [view.code, view.era.id, focused?.key]);
   const plates = images.filter((image) => !brokenImages.has(image.src));
 
-  // The corner control says "esc" because that is the other way to do this; the
-  // key should work whether or not anyone reads the hint.
+  // The corner control names the key; the key works either way.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -102,7 +92,7 @@ export default function RegionPopup({
                   className={classes.join(' ')}
                   aria-pressed={isFocused}
                   title={item.seed}
-                  // Picking the highlighted one again is the way back out.
+                  // Picking the highlighted one again clears the focus.
                   onClick={() => onFocusChange(isFocused ? null : item.key)}
                 >
                   {item.title}
@@ -127,8 +117,7 @@ export default function RegionPopup({
                 All {view.items.length}
               </button>
             </div>
-            {/* Straight from the data file, so it is here even when nothing
-                else about this creature resolves. */}
+            {/* From the data file, so it survives everything else failing. */}
             <p className="focus__seed">{focused.seed}</p>
           </div>
         ) : null}
@@ -151,11 +140,7 @@ export default function RegionPopup({
             <div className="notice" role="status">
               <p className="notice__text">{FAILURE_TEXT[description.reason]}</p>
               {description.reason === 'unconfigured' ? null : (
-                <button
-                  type="button"
-                  className="notice__retry"
-                  onClick={description.retry}
-                >
+                <button type="button" className="notice__retry" onClick={description.retry}>
                   Try again
                 </button>
               )}

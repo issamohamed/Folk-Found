@@ -2,13 +2,13 @@ import type { EraId } from '../data/types';
 import { zoneFor, type TimbreId, type Zone } from './ambienceZones';
 
 /**
- * Regional ambience: a short instrumental phrase synthesised in the browser
- * when a region's panel opens.
+ * Regional ambience: a short instrumental phrase synthesised when a region's
+ * panel opens.
  *
  * No audio files, no network calls, no randomness. Every note, envelope and
- * even the reverb's impulse response is derived from the region's zone, its
- * density in the active era, the era itself, and a hash of the region code.
- * The same region in the same era therefore always sounds identical.
+ * even the reverb impulse is derived from the region's zone, its density in the
+ * active era, the era, and a hash of the region code — so the same region in
+ * the same era always sounds identical.
  */
 
 /* ---------------------------------------------------------------------------
@@ -25,8 +25,8 @@ function hash(text: string): number {
   return h >>> 0;
 }
 
-/** Deterministic PRNG (mulberry32). Stands in for Math.random everywhere here,
- *  including the noise buffers, so nothing about the sound varies per visit. */
+/** Deterministic PRNG (mulberry32), used everywhere Math.random would be,
+ *  including the noise buffers. */
 function seededRandom(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
@@ -42,8 +42,7 @@ function seededRandom(seed: number): () => number {
    Era tint
    ------------------------------------------------------------------------- */
 
-/** What the era does to the sound: the room, not the notes. Ancient is wide and
- *  distant, modern is close and dry. */
+/** What the era does to the sound: the room, not the notes. */
 interface EraTint {
   /** Reverb tail, seconds. */
   decay: number;
@@ -115,8 +114,7 @@ export interface AmbiencePlan {
   level: number;
 }
 
-/** Four repeats of a six-to-nine second phrase: long enough to read a panel
- *  under, short enough not to become wallpaper. */
+/** Four repeats of a six-to-nine second phrase, then it stops for good. */
 const CYCLES = 4;
 
 /** Longest a single note may ring, whatever the era does to it. */
@@ -129,10 +127,8 @@ function midiToHz(root: number, semitones: number): number {
 
 /**
  * Turn a region into a phrase. Pure, and separate from the audio graph so the
- * musical decisions can be checked without a sound card.
- *
- * Seeded by the region code alone, never the era, so a place keeps its melodic
- * shape as you move down the era rail while the room around it changes.
+ * musical decisions can be checked without a sound card. Seeded by the region
+ * code alone, never the era, so a place keeps its shape down the era rail.
  */
 export function planAmbience(request: AmbienceRequest): AmbiencePlan {
   const { code, era, centroid } = request;
@@ -141,23 +137,20 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
   const tint = ERA_TINT[era];
   const rand = seededRandom(hash(code));
 
-  // Longitude places the phrase in the stereo field, at under half width so it
-  // never sounds one-eared.
+  // Longitude places the phrase in the stereo field, at under half width.
   const pan = Math.max(-1, Math.min(1, centroid[1] / 180)) * 0.45;
 
-  // A few semitones of transposition from the seed, so zone-mates are related
-  // without being identical.
+  // Seeded transposition, so zone-mates are related without being identical.
   const transpose = [0, -3, 2, 5, -5, 7][Math.floor(rand() * 6)] ?? 0;
   const root = midiToHz(zone.root, transpose);
 
-  // Eight degrees are always drawn and density decides how many are used, so a
-  // region's opening notes are the same whether its era slice is a 1 or a 5.
+  // Eight degrees are always drawn and density decides how many are used, so
+  // the opening notes are the same whether the era slice is a 1 or a 5.
   const degrees: number[] = [];
   const octaves: number[] = [];
   for (let i = 0; i < 8; i++) {
     degrees.push(Math.floor(rand() * zone.scale.length));
-    // Mostly the home octave. The first note never lifts, so every phrase opens
-    // on solid ground.
+    // Mostly the home octave; the first note never lifts.
     octaves.push(i > 0 && rand() > 0.78 ? 12 : 0);
   }
   const gapJitter: number[] = [];
@@ -186,12 +179,11 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
     cursor += step * gapJitter[i];
   }
 
-  // The phrase plus room for the last note to ring, rounded so repeats land on
-  // a stable grid.
+  // The phrase plus room for the last note to ring.
   const cycle = Math.max(5, Math.round((cursor + held * 0.75) * 10) / 10);
 
   // Each density step adds a voice rather than volume, so the heatmap is
-  // audible as thickness: a 1 is one line alone, a 5 is five things at once.
+  // audible as thickness.
 
   // From 2: the held low root.
   if (density >= 2) {
@@ -206,8 +198,7 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
     });
   }
 
-  // From 3: the line doubled and delayed half a step, which turns a melody into
-  // a texture.
+  // From 3: the line doubled and delayed, which turns a melody into a texture.
   if (density >= 3) {
     for (let i = 0; i < noteCount; i++) {
       const semitones = zone.scale[degrees[i] % zone.scale.length] + octaves[i];
@@ -240,8 +231,7 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
     }
   }
 
-  // From 5 — or 4 in the zone built on it — a soft stroke marking the phrase
-  // out. A pulse, never a beat.
+  // From 5 — or 4 in the zone built on it — a soft stroke. A pulse, not a beat.
   const pulseFrom = zone.id === 'sub_saharan_african' ? 4 : 5;
   if (density >= pulseFrom) {
     const strokes = 6;
@@ -258,7 +248,7 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
     }
   }
 
-  // Denser regions have more voices, so each voice is individually quieter.
+  // Denser regions have more voices, so each one is individually quieter.
   const level = 0.62 + density * 0.055;
 
   return { code, era, density, zone, tint, cycle, cycles: CYCLES, notes, level };
@@ -268,11 +258,11 @@ export function planAmbience(request: AmbienceRequest): AmbiencePlan {
    The audio graph
    ------------------------------------------------------------------------- */
 
-/** Peak level of the whole feature. Low on purpose: this sits under a reader. */
+/** Peak level of the whole feature. Low on purpose. */
 const MASTER_LEVEL = 0.13;
 
 const FADE_IN = 0.6;
-/** Old voice out while the new one comes in, in equal and opposite ramps. */
+/** Old voice out while the new one comes in. */
 const CROSSFADE = 0.7;
 const CLOSE_FADE = 0.9;
 /** Web Audio cannot ramp exponentially to zero. */
@@ -284,7 +274,7 @@ interface Chain {
   master: GainNode;
   /** Deterministic noise, generated once, shared by breaths and strokes. */
   noise: AudioBuffer;
-  /** One impulse response per era, built on first use and kept. */
+  /** One impulse response per era, built on first use. */
   impulses: Map<EraId, AudioBuffer>;
 }
 
@@ -298,12 +288,11 @@ interface Voice {
 
 let chain: Chain | null = null;
 let current: Voice | null = null;
-/** Set when the browser refuses a context, after which the feature is silently
- *  absent rather than noisy. */
+/** Set when the browser refuses a context; the feature then stays silent
+ *  rather than throwing on every click. */
 let unavailable = false;
 
-/** Create the AudioContext and master chain on first use, or return the
- *  existing one. Returns null if audio is unavailable. */
+/** Create the context and master chain on first use, or null if unavailable. */
 function ensureChain(): Chain | null {
   if (chain) return chain;
   if (unavailable) return null;
@@ -326,7 +315,7 @@ function ensureChain(): Chain | null {
   const master = ctx.createGain();
   master.gain.value = MASTER_LEVEL;
   // A limiter on the way out. Its real job is the crossfade, where two phrases
-  // briefly sound at once: this guarantees their sum cannot clip.
+  // briefly sound at once and their sum must not clip.
   const guard = ctx.createDynamicsCompressor();
   guard.threshold.value = -18;
   guard.knee.value = 12;
@@ -345,8 +334,8 @@ function ensureChain(): Chain | null {
   return chain;
 }
 
-/** Build (or reuse) the era's reverb: seeded noise under an exponential decay,
- *  with the two channels drawn from separate streams so it has width. */
+/** The era's reverb: seeded noise under an exponential decay, the two channels
+ *  drawn from separate streams so it has width. */
 function impulseFor(c: Chain, era: EraId, decay: number): AudioBuffer {
   const cached = c.impulses.get(era);
   if (cached) return cached;
@@ -371,11 +360,9 @@ interface BuiltNote {
 }
 
 /**
- * Build one note as its own small graph of oscillators under an envelope.
- *
- * Each source starts at its note's time and stops at the end of its tail, so a
- * thirty-second phrase never has more than a few voices actually running. The
- * sources come back so a crossfade can cut them short.
+ * One note, as its own small graph of oscillators under an envelope. Each
+ * source starts and stops at its own time, so a thirty-second phrase never has
+ * more than a few running. The sources come back so a crossfade can cut them.
  */
 function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): BuiltNote {
   const { ctx } = c;
@@ -388,8 +375,8 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
   pan.connect(out);
 
   const env = ctx.createGain();
-  // The floor has to be set now, not at the note's time: an AudioParam holds
-  // its default of 1 until its first scheduled point, which would let every
+  // The floor must be set now, not at the note's time: an AudioParam holds its
+  // default of 1 until its first scheduled point, which would let every
   // oscillator through at full level from the moment it was created.
   env.gain.value = SILENT;
   env.gain.setValueAtTime(SILENT, t);
@@ -414,8 +401,8 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
     return n;
   };
 
-  /** Struck envelope: instant attack, exponential decay, filter closing over
-   *  the tail. Returns the filter to feed oscillators into. */
+  /** Struck: instant attack, exponential decay, filter closing over the tail.
+   *  Returns the filter to feed oscillators into. */
   const struck = (peak: number, decay: number, bright: number) => {
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -430,8 +417,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
     return filter;
   };
 
-  /** Held envelope: swell, plateau, then a release longer than the attack so
-   *  sustained voices do not sound switched on. */
+  /** Held: swell, plateau, then a release longer than the attack. */
   const held = (peak: number, attack: number) => {
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
@@ -463,8 +449,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
       break;
     }
     case 'bell': {
-      // 2.76 and 5.4 are the struck-metal partial ratios, and are why this
-      // reads as metal rather than as a flute.
+      // 2.76 and 5.4 are the struck-metal partial ratios.
       const filter = struck(note.gain * 0.7, note.dur, 6);
       osc('sine', note.freq).connect(filter);
       [
@@ -483,7 +468,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
       filter.frequency.setValueAtTime(Math.min(4200, note.freq * 3.4), t);
       const body = osc('sawtooth', note.freq);
       body.connect(filter);
-      // Slow, shallow vibrato — any deeper and it stops being a held note.
+      // Slow and shallow; any deeper and it stops being a held note.
       const lfo = ctx.createOscillator();
       lfo.frequency.setValueAtTime(4.6, t);
       const depth = ctx.createGain();
@@ -502,8 +487,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
     case 'air': {
       const filter = held(note.gain * 0.55, note.dur * 0.3);
       osc('sine', note.freq).connect(filter);
-      // The breath: noise narrowed to a band around the note, at a level that
-      // is felt rather than heard.
+      // Noise narrowed to a band around the note, felt rather than heard.
       const band = ctx.createBiquadFilter();
       band.type = 'bandpass';
       band.frequency.setValueAtTime(note.freq * 2, t);
@@ -520,8 +504,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(760, t);
       filter.connect(env);
-      // The slowest envelope here: the floor arrives under the first notes
-      // rather than with them.
+      // The slowest envelope here: the floor arrives under the first notes.
       env.gain.linearRampToValueAtTime(note.gain * 0.5, t + Math.min(2.4, note.dur * 0.4));
       env.gain.setValueAtTime(note.gain * 0.5, t + note.dur * 0.7);
       env.gain.exponentialRampToValueAtTime(SILENT, t + note.dur);
@@ -541,7 +524,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
       env.gain.linearRampToValueAtTime(note.gain * 0.5, t + 0.008);
       env.gain.exponentialRampToValueAtTime(SILENT, t + note.dur);
       noiseSource().connect(band);
-      // A little body under the stroke, so it reads as a skin rather than a tap.
+      // A little body under the stroke, so it reads as a skin, not a tap.
       const thump = ctx.createGain();
       thump.gain.value = 0.5;
       thump.connect(env);
@@ -558,8 +541,7 @@ function buildNote(c: Chain, out: AudioNode, note: PlannedNote, tint: EraTint): 
   return { sources, until };
 }
 
-/** Fade a voice out and let go of its nodes. Used by the crossfade, by closing
- *  the panel, and by the mute switch. */
+/** Fade a voice out and let go of its nodes. */
 function release(voice: Voice, ctx: AudioContext, seconds: number): void {
   const now = ctx.currentTime;
   voice.gain.gain.cancelScheduledValues(now);
@@ -574,8 +556,7 @@ function release(voice: Voice, ctx: AudioContext, seconds: number): void {
         try {
           source.stop();
         } catch {
-          // Already stopped — the ordinary case for a phrase that ran its full
-          // length.
+          // Already stopped, which is the ordinary case.
         }
       });
       voice.gain.disconnect();
@@ -626,10 +607,9 @@ export function setMuted(next: boolean): void {
 /**
  * Start a region's ambience, crossfading out whatever was playing.
  *
- * Safe to call from a click handler or from an effect a click caused: the
- * AudioContext is created here, on first use, which is what satisfies the
- * autoplay policy. A suspended context is resumed, and a browser that refuses
- * one turns the feature off rather than throwing.
+ * The context is created here, on first use, which is what satisfies the
+ * autoplay policy — this is safe to call from a click handler or from an effect
+ * a click caused.
  */
 export function playAmbience(request: AmbienceRequest): void {
   // Muted means muted all the way down: no context, no nodes, no work.
@@ -641,7 +621,7 @@ export function playAmbience(request: AmbienceRequest): void {
 
   if (ctx.state === 'suspended') {
     // Rejected only when there has been no user gesture yet, in which case
-    // there is nothing to be done and nothing worth logging.
+    // there is nothing to be done.
     void ctx.resume().catch(() => undefined);
   }
 
@@ -657,9 +637,8 @@ export function playAmbience(request: AmbienceRequest): void {
   voice.gain.setValueAtTime(SILENT, ctx.currentTime);
   voice.connect(c.master);
 
-  // Dry and reverberant paths in parallel, mixed by the era's wetness. The
-  // convolver belongs to this voice, so a crossfade between two eras does not
-  // put one phrase in the other's room.
+  // Dry and wet in parallel. The convolver belongs to this voice, so a
+  // crossfade between eras does not put one phrase in the other's room.
   const dry = ctx.createGain();
   dry.gain.value = 1 - plan.tint.wet * 0.55;
   dry.connect(voice);
@@ -671,9 +650,7 @@ export function playAmbience(request: AmbienceRequest): void {
   send.connect(reverb);
   reverb.connect(voice);
 
-  // The era's brightness sits above the whole voice so it colours the reverb as
-  // well as the notes, which is what makes ancient sound distant rather than
-  // merely muffled.
+  // Above the whole voice, so it colours the reverb as well as the notes.
   const tone = ctx.createBiquadFilter();
   tone.type = 'lowpass';
   tone.frequency.value = plan.tint.brightness;
@@ -694,8 +671,7 @@ export function playAmbience(request: AmbienceRequest): void {
   }
 
   voice.gain.exponentialRampToValueAtTime(plan.level, start + FADE_IN);
-  // The phrase thins out over its final cycle rather than stopping dead, so
-  // anyone still reading is left in silence rather than in a loop.
+  // Thins out over the final cycle rather than stopping dead.
   const tail = start + plan.cycles * plan.cycle;
   voice.gain.setValueAtTime(plan.level, Math.max(start + FADE_IN, tail - plan.cycle));
   voice.gain.exponentialRampToValueAtTime(plan.level * 0.35, tail);
@@ -715,8 +691,7 @@ export function playAmbience(request: AmbienceRequest): void {
   current = active;
 }
 
-/** Fade out whatever is playing. Called when the panel closes, when the game
- *  starts, and when ambience is muted. */
+/** Fade out whatever is playing. */
 export function stopAmbience(): void {
   if (!chain || !current) return;
   release(current, chain.ctx, CLOSE_FADE);

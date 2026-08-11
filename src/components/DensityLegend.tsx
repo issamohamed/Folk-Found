@@ -1,7 +1,6 @@
 import { DENSITY_STOPS } from '../data/densityScale';
 
-/** Reads the ramp straight from the shared scale, so the legend can never drift
- *  from what the map is actually painting. */
+/** Reads the shared ramp, so the legend cannot drift from the map. */
 export default function DensityLegend() {
   return (
     <div className="legend" aria-label="Folklore density">

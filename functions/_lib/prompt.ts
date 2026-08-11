@@ -2,14 +2,12 @@ import type { GenerationDirective } from '../../src/data/types';
 import type { Item } from './env';
 
 /**
- * Builds the Groq prompts from entities.json's own generation_directive.
+ * Builds the Groq prompts from the data file's own generation_directive.
  *
- * The directive is injected verbatim — it is the product's voice, and this file
- * deliberately does not paraphrase, summarise, or "improve" it. The only thing
- * added around it is the concrete region/era/creature context it needs to act
- * on, plus explicit restatements of the two rules that carry the most weight
- * (needs_story and sensitive), because those apply per-creature and the model
- * needs to know which specific creatures they attach to.
+ * The directive is injected verbatim — nothing here paraphrases or "improves"
+ * it. Only two things are added: the region/era/creature context, and explicit
+ * restatements of the needs_story and sensitive rules against the specific
+ * creatures they attach to.
  */
 
 export function buildSystemPrompt(directive: GenerationDirective): string {
@@ -56,14 +54,8 @@ export function buildUserPrompt(ctx: DescribeContext): string {
   return sections.join('\n');
 }
 
-/**
- * One creature on its own, for when a reader picks a single name out of a
- * region's roll.
- *
- * The system prompt stays the same directive verbatim; only the length moves,
- * and it is overridden explicitly here rather than by editing the directive, so
- * there is never a second place where the voice is defined.
- */
+/** One creature on its own. The system prompt is the same directive verbatim;
+ *  only the length moves, so the voice is never defined in two places. */
 export function buildItemPrompt(item: Item, regionName: string): string {
   const sections = [
     `Write about a single creature: ${item.title} (${item.kind}).`,
@@ -84,11 +76,8 @@ export function buildItemPrompt(item: Item, regionName: string): string {
   return sections.join('\n');
 }
 
-/**
- * Restate the per-item rules against the specific items they govern. The
- * directives state them in general terms; naming the items is what makes them
- * actionable in a single pass.
- */
+/** Restate the per-item rules against the items they govern: the directive
+ *  states them generally, naming the items makes them actionable. */
 function appendPerItemRules(sections: string[], items: Item[]): void {
   const needsStory = items.filter((i) => i.needsStory).map((i) => i.title);
   if (needsStory.length) {
@@ -116,8 +105,8 @@ function appendPerItemRules(sections: string[], items: Item[]): void {
 export const ITEM_WORD_MIN = 80;
 export const ITEM_WORD_MAX = 130;
 
-/** The directive asks for 130-190 words; this is how we check it. Hyphenated
- *  and apostrophed words count as one, matching how a person would count. */
+/** The directive asks for 130-190 words. Hyphenated and apostrophed words
+ *  count as one, matching how a person would count. */
 export function countWords(prose: string): number {
   const matched = prose.trim().match(/[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu);
   return matched ? matched.length : 0;

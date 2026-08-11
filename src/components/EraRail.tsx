@@ -6,11 +6,8 @@ interface EraRailProps {
   onChange: (era: EraId) => void;
 }
 
-/**
- * The vertical era rail. Order comes from folklore.json, which lists the four
- * periods chronologically — the rail never re-sorts them, so moving down the
- * rail is always moving forward in time.
- */
+/** The vertical era rail. Order comes from the data file, which is already
+ *  chronological; the rail never re-sorts it. */
 export default function EraRail({ eras, active, onChange }: EraRailProps) {
   const activeIndex = eras.findIndex((e) => e.id === active);
 

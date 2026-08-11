@@ -1,5 +1,4 @@
-/* Folk & Found
-   Map surface and era rail first, then the glass placard from line ~247. */
+/* Folk & Found — map surface and era rail first, then the glass placard. */
 
 * {
   box-sizing: border-box;
@@ -59,8 +58,7 @@ body {
   transform: translateY(-50%);
 }
 
-/* The spine sits behind the dots rather than beside them: it is inset by half a
-   dot at each end so it spans exactly from the first dot's centre to the last. */
+/* Inset by half a dot at each end, so it spans first dot centre to last. */
 .rail__spine {
   position: absolute;
   left: 5px;
@@ -71,8 +69,7 @@ body {
   background: #30363d;
 }
 
-/* Fills from the first era down to the active one, so the rail reads as a
-   timeline being travelled rather than four unrelated buttons. */
+/* Fills from the first era to the active one, so the rail reads as a timeline. */
 .rail__spine-fill {
   position: absolute;
   inset: 0 0 auto 0;
@@ -194,10 +191,8 @@ body {
   height: 100%;
 }
 
-/* Shapes that resolve to real data. The fill is set inline from the density
-   ramp for the active era; only stroke and interaction live here. The
-   transition is what makes an era switch read as the map *shifting* rather
-   than snapping. */
+/* Fill is set inline from the density ramp; only stroke and interaction live
+   here. The transition is what makes an era switch read as a shift. */
 .shape--live {
   stroke: #0d1117;
   stroke-width: 0.3;
@@ -216,9 +211,7 @@ body {
   stroke-width: 1.1;
 }
 
-/* Shapes with no folklore data (Antarctica, uninhabited territories, disputed
-   areas with no ISO code) and shapes covered by a detail layer. Not clickable,
-   so a click can never come back empty. */
+/* No data, or covered by a detail layer. Not clickable. */
 .shape--inert {
   fill: #161b22;
   stroke: #0d1117;
@@ -244,33 +237,24 @@ body {
   stroke-width: 1;
 }
 
-/* ===========================================================================
-   The glass placard
-   ---------------------------------------------------------------------------
-   A museum placard made of light: the dark map is blurred behind a pane of
-   translucent white, edged with a thin luminous border and lit from inside.
-   Type is a refined serif for the place name, clean sans for the reading copy.
-   =========================================================================== */
+/* ---- The glass placard --------------------------------------------------- */
 
 .popup {
   position: fixed;
   top: 3.25rem;
   right: 1.5rem;
   width: min(30rem, calc(100vw - 3rem));
-  /* Stops short of the floor so the search bar, which is centred and overlaps
-     this column, never sits on top of the last line of an entry. */
+  /* Stops short of the floor so the centred search bar never covers the last
+     line of an entry. */
   max-height: calc(100vh - 8.75rem);
-  /* The frame itself never scrolls, so the close button stays put; the body
-     inside it is what moves. */
+  /* The frame never scrolls, so the close button stays put; the body moves. */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border-radius: 20px;
 
-  /* Frosted white glass over a dark scrim. The white gradient gives the pane its
-     lit, milky character; the scrim underneath is what makes the prose legible
-     no matter whether a teeming red region or empty ocean sits behind it. The
-     saturate() keeps the blurred map's colour alive rather than flattening it. */
+  /* Frosted white over a dark scrim: the scrim is what keeps the prose legible
+     whatever is behind it, and saturate() stops the blur flattening the map. */
   background:
     linear-gradient(
       160deg,
@@ -282,8 +266,7 @@ body {
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
 
-  /* Thin luminous border, an inner glow along the top edge where the light
-     would catch, and a soft drop shadow lifting it off the map. */
+  /* Luminous border, inner glow along the top edge, drop shadow off the map. */
   border: 1px solid rgba(255, 255, 255, 0.3);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
@@ -302,12 +285,8 @@ body {
   scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
 }
 
-/* Around one entry in twelve links to a Wikipedia page that no longer exists,
-   and some regions have no resolvable article at all — the whole Pacific Mo'o
-   belt, for one. Where that happens the images and the wiki card are simply not
-   rendered, so the prose becomes the last block; these rules take the trailing
-   margin off whatever ends up last, and the panel reads as finished rather than
-   as something that failed to load. */
+/* Images and the wiki card are not rendered when nothing resolves, so these
+   take the trailing margin off whatever ends up last. */
 .popup__body > *:last-child,
 .popup__body > .prose:last-child > *:last-child {
   margin-bottom: 0;
@@ -334,8 +313,7 @@ body {
   border-radius: 4px;
 }
 
-/* Reads as a key rather than a button, because Escape does the same thing and
-   the label is the hint. Sits in the corner the close control always occupied. */
+/* Styled as a key, since Escape does the same thing and the label is the hint. */
 .popup__esc {
   position: absolute;
   top: 1rem;
@@ -440,8 +418,7 @@ body {
   color: rgba(255, 255, 255, 0.96);
 }
 
-/* The one the panel below is currently about. Reads as lit rather than merely
-   selected, so it is obvious at a glance which name the entry belongs to. */
+/* The creature the panel is currently about: lit rather than merely selected. */
 .roll__item.is-focused {
   background: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.95);
@@ -449,8 +426,7 @@ body {
   box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
 }
 
-/* Creatures belonging to living traditions carry a warmer edge — a quiet cue
-   that these are held by people now, not relics. */
+/* Living traditions carry a warmer edge: these are held by people now. */
 .roll__item--living {
   background: rgba(247, 180, 130, 0.12);
   border-color: rgba(247, 180, 130, 0.38);
@@ -463,7 +439,7 @@ body {
   color: rgba(255, 226, 202, 1);
 }
 
-/* A living tradition keeps its warmth even when it is the focused one. */
+/* Living traditions keep their warmth when focused. */
 .roll__item--living.is-focused {
   background: rgba(255, 214, 184, 0.94);
   border-color: rgba(255, 226, 202, 0.98);
@@ -524,8 +500,7 @@ body {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* The seed fact — the one line that is always true and always present, even
-   when nothing else about this creature resolves. */
+/* The seed fact, present even when nothing else about the creature resolves. */
 .focus__seed {
   margin: 0.75rem 0 0;
   font-size: 0.87rem;
@@ -542,10 +517,8 @@ body {
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* When the writing does not arrive, the panel says so in its own voice rather
-   than surfacing a request failure. Held inside a soft inset so it reads as a
-   deliberate part of the placard — a card awaiting its text — instead of an
-   error dropped into the middle of the prose. */
+/* Shown when the writing does not arrive. Inset so it reads as part of the
+   placard rather than an error dropped into the prose. */
 .notice {
   display: flex;
   align-items: baseline;
@@ -587,8 +560,7 @@ body {
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-/* Loading: a shimmer in the shape of the paragraph that is coming, so the
-   panel keeps its composure instead of flashing a spinner. */
+/* A shimmer in the shape of the paragraph that is coming, not a spinner. */
 .shimmer {
   display: grid;
   gap: 0.62rem;
@@ -660,7 +632,7 @@ body {
   color: #fff;
 }
 
-/* The doorway to going deeper — never a substitute for the prose above. */
+/* The "read more" card. */
 .wiki-card {
   display: block;
   padding: 0.85rem 1rem;
@@ -766,10 +738,8 @@ body {
 
 /* ---- Globe / flat map switch --------------------------------------------- */
 
-/* Everything on the right-hand end of the header. The group takes the auto
-   margin so the switch and the ambience button travel together — and so the
-   button still sits at the far right on a machine with no WebGL, where the
-   switch is not rendered at all. */
+/* The group takes the auto margin, so the ambience button still sits at the far
+   right on a machine with no WebGL, where the switch is not rendered. */
 .app__controls {
   display: flex;
   align-items: center;
@@ -806,9 +776,7 @@ body {
 
 /* ---- Ambience switch ------------------------------------------------------ */
 
-/* Understated on purpose: the sound is a passive thing, and a control that
-   announced itself would suggest there was something to manage. It brightens on
-   hover and dims when it is off, and that is the whole of its behaviour. */
+/* Understated on purpose: brightens on hover, dims when off. */
 .ambience {
   display: grid;
   place-items: center;
@@ -838,9 +806,7 @@ body {
 
 /* ---- The bestiary search ------------------------------------------------- */
 
-/* Sits at the bottom of the map, centred, and stays out of the way until it is
-   wanted. Glass like the placard but thinner and cooler — the placard is the
-   thing you read, this is the thing you reach through. */
+/* Glass like the placard but thinner and cooler. */
 .finder {
   position: fixed;
   left: 50%;

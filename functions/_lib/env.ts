@@ -2,10 +2,9 @@ import type { EntitiesFile, EraId, GenerationDirective } from '../../src/data/ty
 import entitiesJson from '../../entities.json';
 
 /**
- * entities.json is bundled into the Worker rather than fetched or trusted from
- * the request body. That keeps one source of truth across the whole stack and,
- * more importantly, means a caller cannot hand us invented creatures or a
- * rewritten directive and get them cached under a real region's key.
+ * The data file is bundled into the Worker rather than trusted from the request
+ * body, so a caller cannot hand us invented creatures or a rewritten directive
+ * and get them cached under a real region's key.
  */
 const file = entitiesJson as unknown as EntitiesFile;
 
@@ -78,11 +77,8 @@ export function json(
   });
 }
 
-/**
- * Catch-all for API routes. Without this, a non-POST request falls through to
- * the static asset handler and gets served the SPA's index.html, which is a
- * confusing thing for an API endpoint to return.
- */
+/** Catch-all for API routes: without it a non-POST request falls through to
+ *  the static handler and is served index.html. */
 export function methodNotAllowed(allow: string): Response {
   return json({ error: `Method not allowed. Use ${allow}.` }, 405, { Allow: allow });
 }
@@ -91,12 +87,8 @@ export function isEraId(value: unknown): value is EraId {
   return typeof value === 'string' && data.eras.some((era) => era.id === value);
 }
 
-/**
- * The authoritative item list for a region and era, read from the bundled data.
- * Callers send their own copy (that is the documented request shape), but what
- * actually reaches the model is resolved here. Every region has entries in every
- * era, so this is never empty for a valid region.
- */
+/** The authoritative item list for a region and era. Callers send their own
+ *  copy, but what reaches the model is resolved here. */
 export function authoritativeItems(regionCode: string, era: EraId): Item[] | null {
   const keys = data.regions[regionCode]?.eras[era];
   if (!keys) return null;
@@ -109,12 +101,8 @@ export function authoritativeItems(regionCode: string, era: EraId): Item[] | nul
   return items;
 }
 
-/**
- * A short stable fingerprint of the generation directive. It is stored inside
- * each cached record so that editing the directive retires the old prose
- * automatically, without needing to change the cache key or purge KV by hand.
- * FNV-1a: tiny, synchronous, and sufficient for change detection.
- */
+/** Fingerprint of the generation directive, stored in each cached record so
+ *  that editing the directive retires the old prose without a manual purge. */
 export const DIRECTIVE_VERSION = fnv1a(JSON.stringify(data.directive));
 
 function fnv1a(input: string): string {

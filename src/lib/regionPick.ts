@@ -2,22 +2,15 @@ import { unwrapRing, type Polygon, type Ring } from './globeShapes';
 import { angularDistanceDeg } from './geo';
 
 /**
- * Resolving a point on the globe to a region.
+ * Resolving a point on the globe to a region. Free of three.js so the region
+ * sweep can exercise exactly the code the renderer uses.
  *
- * Deliberately free of three.js so the region sweep can exercise exactly the
- * code the renderer uses, rather than a re-implementation of it.
+ * Nearest-centroid alone is not enough once outlines are drawn: the `US`
+ * centroid sits in Kansas, so a click on Oklahoma resolved to "United States".
  *
- * Nearest-centroid alone stops being good enough the moment outlines are drawn.
- * folklore.json holds country-level data for `US` alongside all fifty states,
- * and the `US` centroid sits in Kansas — so a click on Oklahoma, whose outline
- * the reader can now plainly see, resolved to "United States". Testing the point
- * against the shape it is actually inside removes that whole class of surprise.
- *
- * Order of resolution:
- *   1. a shapeless region sitting inside the same shape as the pointer
- *      (`US` within the states, Scotland within the UK)
- *   2. the drawn shape containing the point
- *   3. the nearest centroid, for clicks that land in open water
+ * Order: a shapeless region inside the same shape as the pointer (`US` within
+ * the states, Scotland within the UK), then the shape containing the point,
+ * then the nearest centroid for clicks in open water.
  */
 
 export interface PickPolygon {
@@ -35,13 +28,10 @@ export interface ShapelessRegion {
   lat: number;
   lng: number;
   /**
-   * The drawn region whose shape contains this one's centroid, if any.
-   *
-   * This is what separates a sub-national region from a small neighbour.
-   * Scotland's centroid falls inside the UK's outline, so Scotland may claim
-   * clicks that land on the UK. Guadeloupe's centroid falls on no drawn shape
-   * at all, so it may not claim clicks that land on Montserrat — which is a
-   * different island a few dozen miles away, and has its own entry.
+   * The drawn region whose shape contains this one's centroid, if any. This is
+   * what separates a sub-national region from a small neighbour: Scotland's
+   * centroid falls inside the UK, so it may claim UK clicks; Guadeloupe's falls
+   * on no shape, so it may not claim clicks on Montserrat.
    */
   container: string | null;
 }
@@ -52,8 +42,7 @@ export interface PickIndex {
 }
 
 /** How close a pointer must come to a shapeless region's centroid to claim it.
- *  Small on purpose: this is the globe's equivalent of the flat map's centroid
- *  marker dot, so it must not swallow the shape underneath it. */
+ *  Small on purpose, so it cannot swallow the shape underneath. */
 export const CENTROID_CLAIM_DEGREES = 2.2;
 
 /** How far a click may land from a centroid and still count as that region. */
@@ -69,10 +58,8 @@ export function buildPickIndex(
   const known = new Set(allCodes);
 
   for (const { code, polygons: shapePolygons } of shapes) {
-    // Antarctica is drawn, and resolves to a tidy ISO code, but folklore.json
-    // holds no entry for it. Indexing it would let a click land on a region the
-    // panel cannot open; leaving it out means such a click falls through to the
-    // nearest-centroid rule, exactly as it did before shapes existed.
+    // Antarctica is drawn and has an ISO code but no folklore entry. Indexing
+    // it would let a click land on a region the panel cannot open.
     if (!code || !known.has(code)) continue;
     shaped.add(code);
 
@@ -118,9 +105,8 @@ export function resolveRegion(
 ): string | null {
   const here = shapeAt(index, lat, lng);
 
-  // 1. A shapeless region that lives inside whatever the pointer is over. This
-  //    keeps `US`, Scotland and Siberia reachable even though they lie wholly
-  //    within a shape that would otherwise claim every click on them.
+  // 1. A shapeless region inside whatever the pointer is over, which keeps
+  //    `US`, Scotland and Siberia reachable.
   let claimed: string | null = null;
   let claimedDist = CENTROID_CLAIM_DEGREES;
   for (const region of index.shapeless) {
@@ -136,9 +122,8 @@ export function resolveRegion(
   // 2. The shape the point is actually inside.
   if (here) return here;
 
-  // 3. Open water: the nearest centroid, so a click just off a coast still
-  //    opens the country it belongs to, and an island too small to be drawn at
-  //    this resolution is still reachable.
+  // 3. Open water: the nearest centroid, so a click off a coast still opens
+  //    its country and undrawn islands stay reachable.
   let best: string | null = null;
   let bestDist = Infinity;
   for (const code of allCodes) {
@@ -158,9 +143,8 @@ export function shapeAt(index: PickIndex, lat: number, lng: number): string | nu
   for (const entry of index.polygons) {
     if (lat < entry.minLat || lat > entry.maxLat) continue;
 
-    // The ring's longitudes may have been unwrapped past ±180, so the point is
-    // offered in each equivalent position and tested in whichever one the
-    // ring's own range covers.
+    // The ring's longitudes may be unwrapped past ±180, so the point is tested
+    // in each equivalent position.
     const candidate =
       lng >= entry.minLng && lng <= entry.maxLng
         ? lng
@@ -178,8 +162,7 @@ export function shapeAt(index: PickIndex, lat: number, lng: number): string | nu
 
 function pointInPolygon(lng: number, lat: number, rings: Ring[]): boolean {
   if (!pointInRing(lng, lat, rings[0])) return false;
-  // Inside the outer ring but inside a hole means outside the shape — the
-  // Caspian within Kazakhstan, Lesotho within South Africa.
+  // Inside the outer ring but inside a hole means outside the shape.
   for (let i = 1; i < rings.length; i++) {
     if (pointInRing(lng, lat, rings[i])) return false;
   }

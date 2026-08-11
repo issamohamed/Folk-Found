@@ -1,17 +1,13 @@
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
-/** Llama 3.3 70B, as specified — the voice of every written entry. */
+/** The model that writes every entry. */
 export const GROQ_MODEL = 'llama-3.3-70b-versatile';
 
 /**
- * Retrieval model for search.
- *
- * Search is a different job from writing: it ranks a fixed catalog rather than
- * composing prose, and it sends the whole 415-creature catalog on every uncached
- * query — around ten thousand tokens. Running that through the 70B exhausted the
- * per-minute token budget after two searches and returned 429s, which makes a
- * search bar useless. The small model handles matching well and leaves the 70B's
- * budget entirely to the entries readers actually read.
+ * Retrieval model for search. Search ranks a fixed catalog rather than composing
+ * prose, and sends all 415 creatures on every uncached query — around ten
+ * thousand tokens. Through the 70B that exhausted the per-minute budget after
+ * two searches and returned 429s.
  */
 export const GROQ_SEARCH_MODEL = 'llama-3.1-8b-instant';
 
@@ -57,7 +53,7 @@ export async function groqComplete(
       messages,
       // Warm enough for vivid prose, cool enough to stay on the seed facts.
       temperature: options.temperature ?? 0.7,
-      // The band is 130-190 words; this leaves headroom without inviting an essay.
+      // The band is 130-190 words; headroom without inviting an essay.
       max_tokens: options.maxTokens ?? 500,
       ...(options.json ? { response_format: { type: 'json_object' } } : {}),
     }),

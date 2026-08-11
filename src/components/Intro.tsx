@@ -11,19 +11,13 @@ interface IntroProps {
   onBegin: (activity: Activity) => void;
 }
 
-/**
- * The way in.
- *
- * Not a separate screen — a pane of glass laid over the globe, which is already
- * turning behind it. The blur is deliberately light: the world should be
- * legible through the door, so that opening it feels like stepping closer to
- * something that was there all along rather than loading a second page.
- */
+/** The landing overlay: a pane of glass over the globe, which is already
+ *  turning behind it. The blur is kept light so the world stays legible. */
 export default function Intro({ phase, onAbout, onBack, onBegin }: IntroProps) {
   const opening = phase === 'opening';
 
-  // Escape backs out of whatever is on top. On the note that means the note;
-  // on the door there is nothing behind it, so it stays put.
+  // Escape closes the about note. There is nothing behind the landing, so it
+  // stays put.
   useEffect(() => {
     if (phase !== 'about') return;
     const onKey = (e: KeyboardEvent) => {
@@ -36,8 +30,7 @@ export default function Intro({ phase, onAbout, onBack, onBegin }: IntroProps) {
   return (
     <div
       className={`intro${opening ? ' is-opening' : ''}${phase === 'about' ? ' is-reading' : ''}`}
-      // Once the door is opening, the globe underneath should already be taking
-      // the pointer.
+      // Once the overlay is opening, the globe underneath takes the pointer.
       aria-hidden={opening}
     >
       <div className="intro__scrim" />
@@ -63,32 +56,32 @@ export default function Intro({ phase, onAbout, onBack, onBegin }: IntroProps) {
 
           <div className="note__body">
             <p>
-              It started in a library, at the age when the reference section still felt
-              like somewhere you were not quite allowed. The folklore shelves were the
-              good ones: enormous hardcovers, sorted by country, with that particular
-              dust that gets into the spine of a book nobody has opened in a decade. I
-              would take down whichever one had the strangest name on it and read about
-              things I had no context for at all — river horses in Scotland, a bird whose
-              wingbeats made thunder, a lizard that guarded fishponds. I did not
-              understand most of it. I loved all of it.
+              It started in a library, at the age when the reference section still felt like
+              somewhere you were not quite allowed. The folklore shelves were the good ones:
+              enormous hardcovers, sorted by country, with that particular dust that gets
+              into the spine of a book nobody has opened in a decade. I would take down
+              whichever one had the strangest name on it and read about things I had no
+              context for at all — river horses in Scotland, a bird whose wingbeats made
+              thunder, a lizard that guarded fishponds. I did not understand most of it. I
+              loved all of it.
             </p>
             <p>
               What I did not realise then was how much those books left out. They were
               organised the way an encyclopedia is organised: one country, one page, the
-              three most famous names, move on. It was only later, older, falling down
-              one lucky internet rabbit hole after another, that I found the rest — the
-              smaller and stranger and much more local things. A creature known in one
-              valley. A story told in one language by a few thousand people. Beliefs that
-              had never made it into the big sorted hardcovers because there was no room,
-              or no translator, or no one had thought to ask.
+              three most famous names, move on. It was only later, older, falling down one
+              lucky internet rabbit hole after another, that I found the rest — the smaller
+              and stranger and much more local things. A creature known in one valley. A
+              story told in one language by a few thousand people. Beliefs that had never
+              made it into the big sorted hardcovers because there was no room, or no
+              translator, or no one had thought to ask.
             </p>
             <p>
-              Finding any of that took hours, and a lot of luck, and knowing what to
-              search for in the first place. That is the hassle I wanted to remove. This
-              is a map of both — the famous and the barely recorded — so that you can put
-              a finger anywhere on Earth and find out what the people there said was out
-              in the dark. There are thousands of them. Most of us would go a whole life
-              and never meet a single one.
+              Finding any of that took hours, and a lot of luck, and knowing what to search
+              for in the first place. That is the hassle I wanted to remove. This is a map
+              of both — the famous and the barely recorded — so that you can put a finger
+              anywhere on Earth and find out what the people there said was out in the dark.
+              There are thousands of them. Most of us would go a whole life and never meet a
+              single one.
             </p>
           </div>
         </article>

@@ -13,13 +13,10 @@ interface RegionShapeProps {
 }
 
 /**
- * One country or state path, filled by its folklore density for the active era.
+ * One country or state path, filled by its density for the active era.
  *
- * Memoised because the map draws ~300 shapes and both selecting a region and
- * switching eras would otherwise re-render every one of them. All props are
- * primitives or stable references, so React skips the shapes that did not
- * change — on an era switch only the regions whose density actually moved get
- * repainted.
+ * Memoised: the map draws ~300 shapes, and every prop here is a primitive or a
+ * stable reference, so an era switch only repaints the shapes that changed.
  */
 const RegionShape = memo(function RegionShape({
   geo,

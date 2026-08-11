@@ -1,18 +1,15 @@
 /**
- * The heatmap ramp: folklore-sparse regions read cool and desaturated, dense
- * ones burn red. Density is an integer 1..5 straight from folklore.json.
+ * The heatmap ramp: sparse regions read cool, dense ones burn red. Density is
+ * an integer 1..5 straight from the data file.
  *
- * The ramp is deliberately not a plain hue rotation — saturation and lightness
- * climb alongside the hue so that 5 reads as a hot splotch against 1 receding
- * into the background, which is what makes an era switch legible at a glance.
- * Stage 6 reuses these same colours for the globe's centroid glows, so the two
- * views always agree.
+ * Not a plain hue rotation — saturation and lightness climb with the hue, so a
+ * 5 reads as hot against a 1 receding. The globe reuses these same colours.
  */
 
 export interface DensityStop {
   /** Fill for the 2D map. */
   fill: string;
-  /** Same colour as linear RGB in 0..1, for three.js shaders in Stage 6. */
+  /** Same colour as linear RGB in 0..1, for the three.js shaders. */
   rgb: readonly [number, number, number];
   label: string;
 }
@@ -25,8 +22,7 @@ const STOPS: Record<number, DensityStop> = {
   5: { fill: '#e0453a', rgb: [0.878, 0.271, 0.227], label: 'Teeming' },
 };
 
-/** Colour for a region with no folklore data at all — Antarctica, uninhabited
- *  territories, disputed areas with no ISO code. Never clickable. */
+/** Colour for a region with no data at all. Never clickable. */
 export const NO_DATA_FILL = '#161b22';
 
 /** Same colour in linear RGB, for the globe's shaders. */

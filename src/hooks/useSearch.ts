@@ -16,13 +16,9 @@ export interface SearchHit {
   era: EraId;
   /** How many region-and-era slices list this creature at all. */
   places: number;
-  /**
-   * Set only when another result in the same list carries the same name, and
-   * then it is the region — which is what actually tells the two apart. Four
-   * rows reading "Thunderbird" look like a bug; "Thunderbird (Montana)" and
-   * "Thunderbird (Ojibwe Nation)" read as what they are, four separate
-   * traditions that happen to share a word.
-   */
+  /** Region name, set only when another result carries the same name. Four
+   *  rows reading "Thunderbird" look like a bug; qualified they read as four
+   *  traditions sharing a word. */
   qualifier: string | null;
 }
 
@@ -36,17 +32,12 @@ const DEBOUNCE_MS = 320;
 const MAX_HITS = 8;
 
 /**
- * Search over the creature dictionary.
+ * Search over the creature dictionary, in two passes.
  *
- * Two passes, deliberately. The literal pass runs here against the already
- * loaded entities.json and answers instantly — someone typing "kelp" should see
- * the kelpie before they finish the word, without a round trip. The semantic
- * pass goes to the Worker, which asks Groq to match on meaning, and folds in
- * behind the literal hits when it lands.
- *
- * That ordering matters: the fast local answer is never replaced by a slower
- * remote one, only extended by it, so the list never reshuffles under a reader
- * who is already reaching for a result.
+ * The literal pass runs locally against the loaded data and answers instantly.
+ * The semantic pass goes to the Worker and folds in behind it. The fast local
+ * answer is never replaced by the slower remote one, only extended, so the list
+ * does not reshuffle under someone already reaching for a result.
  */
 export function useSearch(data: Dataset, query: string, era: EraId): SearchState {
   const trimmed = query.trim();
@@ -61,8 +52,7 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
     const scored: Array<{ key: string; score: number }> = [];
     for (const [key, entry] of Object.entries(data.items)) {
       const label = entry.title.toLowerCase();
-      // A name that starts with the query beats one that merely contains it,
-      // which beats a match hiding in the type or the seed fact.
+      // Prefix beats substring, which beats a match in the type or seed.
       const score = label.startsWith(needle)
         ? 0
         : label.includes(needle)
@@ -76,7 +66,8 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
     }
 
     scored.sort(
-      (a, b) => a.score - b.score || data.items[a.key].title.localeCompare(data.items[b.key].title),
+      (a, b) =>
+        a.score - b.score || data.items[a.key].title.localeCompare(data.items[b.key].title),
     );
 
     return scored
@@ -96,9 +87,8 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
     }
 
     const controller = new AbortController();
-    // Drop the previous query's semantic hits straight away. Holding them until
-    // the new ones land would leave the last search's answers sitting under the
-    // new one's literal matches, which reads as the search having got it wrong.
+    // Drop the previous query's semantic hits at once: holding them would
+    // leave the last search's answers under the new one's literal matches.
     setSemantic([]);
     setStatus('searching');
 
@@ -109,7 +99,9 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
         signal: controller.signal,
         body: JSON.stringify({ query: trimmed }),
       })
-        .then((res) => (res.ok ? res.json() : Promise.reject(new Error(String(res.status)))))
+        .then((res) =>
+          res.ok ? res.json() : Promise.reject(new Error(String(res.status))),
+        )
         .then((body: { matches?: Array<{ key: string; why?: string }> }) => {
           if (controller.signal.aborted) return;
           const hits = (body.matches ?? [])
@@ -120,8 +112,8 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
         })
         .catch(() => {
           if (controller.signal.aborted) return;
-          // The literal hits are local and still stand, so a failed semantic
-          // pass narrows the search rather than breaking it.
+          // The local hits still stand, so this narrows the search rather
+          // than breaking it.
           setSemantic([]);
           setStatus('error');
         });
@@ -135,12 +127,13 @@ export function useSearch(data: Dataset, query: string, era: EraId): SearchState
 
   const hits = useMemo(() => {
     const seen = new Set(literal.map((h) => h.key));
-    const merged = [...literal, ...semantic.filter((h) => !seen.has(h.key))].slice(0, MAX_HITS);
+    const merged = [...literal, ...semantic.filter((h) => !seen.has(h.key))].slice(
+      0,
+      MAX_HITS,
+    );
 
-    // 26 names in the dictionary belong to more than one creature — Thunderbird
-    // to four, Chupacabra to five. Whether that needs saying depends on what
-    // else came back, so it is decided here against the final list rather than
-    // baked into the entry.
+    // 26 names belong to more than one creature. Whether that needs saying
+    // depends on what else came back, so it is decided against the final list.
     const shared = new Set<string>();
     const once = new Set<string>();
     for (const hit of merged) {
@@ -185,12 +178,9 @@ function buildPlacements(data: Dataset): Map<string, Placement[]> {
 }
 
 /**
- * Turn a matched key into somewhere the reader can actually be sent.
- *
- * A creature can sit in dozens of slices — Mo'o is the whole of sixteen Pacific
- * islands — so the destination is chosen rather than guessed at: stay in the era
- * the reader is already in if the creature is there, and prefer the region that
- * lists it first, which is the one it most belongs to.
+ * Turn a matched key into a destination. A creature can sit in dozens of slices,
+ * so: stay in the current era if the creature is there, and prefer the region
+ * that lists it first.
  */
 function toHit(
   data: Dataset,

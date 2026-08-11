@@ -24,13 +24,13 @@ import {
 } from '../lib/regionPick';
 
 const GLOBE_RADIUS = 1;
-/** Coastlines and borders, lifted clear of the breathing wireframe shell. */
+/** Coastlines and borders, lifted clear of the wireframe shell. */
 const BORDER_RADIUS = GLOBE_RADIUS * 1.006;
 /** Region fills sit just under their own outlines. */
 const FILL_RADIUS = GLOBE_RADIUS * 1.002;
-/** Where the camera is pointed on load — the eastern Mediterranean. */
+/** Where the camera points on load. */
 const OPENING_VIEW = { lat: 30, lng: 26 };
-/** Splotches float just clear of the shell so they are never z-fought by it. */
+/** Splotches float clear of the shell to avoid z-fighting. */
 const SPLOTCH_RADIUS = GLOBE_RADIUS * 1.004;
 
 interface GlobeProps {
@@ -44,9 +44,8 @@ interface GlobeProps {
    Shaders
    ------------------------------------------------------------------------- */
 
-/** Shared by the wireframe shell and its point cloud. Displaces each vertex
- *  along its normal by a slow standing wave (elevation), and fades the far side
- *  of the sphere by how squarely it faces the camera (alpha). */
+/** Shared by the wireframe shell and its point cloud: displaces each vertex
+ *  along its normal by a standing wave, and fades the far side of the sphere. */
 const SHELL_VERTEX = /* glsl */ `
   uniform float uTime;
   uniform float uAmplitude;
@@ -96,7 +95,7 @@ const SHELL_FRAGMENT = /* glsl */ `
     float facing = dot(normalize(vNormalW), viewDir);
 
     // The far hemisphere stays faintly visible, so the globe reads as a shell
-    // of light rather than a solid ball.
+    // rather than a solid ball.
     float alpha = smoothstep(-0.6, 0.85, facing) * uOpacity;
     vec3 color = mix(uColorLow, uColorHigh, vElevation * 0.5 + 0.5);
 
@@ -137,8 +136,8 @@ const SPLOTCH_FRAGMENT = /* glsl */ `
     // Soft radial falloff — a splotch, not a dot.
     float glow = pow(1.0 - d, 2.6);
 
-    // Splotches on the far side of the globe are hidden by facing rather than
-    // by depth, which keeps the additive pass free of z-fighting.
+    // Hidden by facing rather than depth, which keeps the additive pass free
+    // of z-fighting.
     vec3 viewDir = normalize(cameraPosition - vPositionW);
     float front = smoothstep(-0.02, 0.3, dot(vNormalW, viewDir));
 
@@ -146,8 +145,8 @@ const SPLOTCH_FRAGMENT = /* glsl */ `
   }
 `;
 
-/** Country and US-state outlines. Every vertex carries the index of the region
- *  it belongs to, so hovering is a single uniform write rather than a rebuild. */
+/** Country and US-state outlines. Every vertex carries its region index, so
+ *  hovering is one uniform write rather than a geometry rebuild. */
 const BORDER_VERTEX = /* glsl */ `
   attribute float aRegion;
   uniform float uHovered;
@@ -181,9 +180,8 @@ const BORDER_FRAGMENT = /* glsl */ `
     vec3 viewDir = normalize(cameraPosition - vPositionW);
     float facing = dot(normalize(vNormalW), viewDir);
 
-    // Borders on the far side fade out instead of being clipped, so the globe
-    // keeps a readable silhouette without the back of the world crowding the
-    // front of it.
+    // Far-side borders fade instead of being clipped, so the back of the world
+    // does not crowd the front.
     float front = smoothstep(-0.05, 0.32, facing);
 
     gl_FragColor = vec4(
@@ -193,9 +191,8 @@ const BORDER_FRAGMENT = /* glsl */ `
   }
 `;
 
-/** The density heatmap as territory rather than as a point: each region's own
- *  surface, tinted by its colour for the active era. Splotches show where the
- *  folklore is thickest; the fills show whose it is. */
+/** The heatmap as territory: each region's surface tinted by its colour for
+ *  the active era. Splotches show where folklore is thickest, fills show whose. */
 const FILL_VERTEX = /* glsl */ `
   attribute float aRegion;
   uniform sampler2D uRegionColors;
@@ -240,8 +237,7 @@ const FILL_FRAGMENT = /* glsl */ `
     float facing = dot(normalize(vNormalW), viewDir);
     float front = smoothstep(-0.05, 0.35, facing);
 
-    // Land with no folklore data — Antarctica — stays a dim slate so it reads
-    // as ground rather than as a hole in the globe.
+    // Land with no data (Antarctica) stays a dim slate rather than a hole.
     vec3 color = mix(uNoDataColor, vColor, vHasData);
     float alpha = uOpacity * front * mix(1.0, 2.6, vLit) * mix(0.45, 1.0, vHasData);
 
@@ -254,9 +250,8 @@ const FILL_FRAGMENT = /* glsl */ `
 export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
 
-  // The two atlases are ~850 kB together. The globe needs them for its outlines
-  // and the flat map needs them for its shapes; the hook caches nothing, but
-  // the browser's HTTP cache means switching views does not refetch.
+  // ~850 kB of atlases. The hook caches nothing; the browser's HTTP cache is
+  // what keeps switching views from refetching.
   const { topologies } = useTopologies();
 
   // Mutable scene handles that the update effects need to reach.
@@ -282,12 +277,9 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     const scene = new THREE.Scene();
     sceneRef.current = scene;
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
-    // Open looking at the eastern Mediterranean. The globe's default orientation
-    // faces 90°W — the middle of the Pacific and the emptiest face of the map —
-    // so the first thing a visitor saw was ocean. From here Greece, Italy, Egypt
-    // and the Levant sit in the middle of the frame with Mesopotamia, Persia and
-    // India falling away to the right: in the ancient era, almost every density-5
-    // region on Earth, already lit, before anyone has clicked anything.
+    // Open on the eastern Mediterranean. The default orientation faces 90°W —
+    // open Pacific — so the first thing anyone saw was ocean. From here most of
+    // the ancient era's density-5 regions are already in frame.
     camera.position.copy(latLngToVector3(OPENING_VIEW.lat, OPENING_VIEW.lng, 3.05));
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -304,17 +296,9 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.35;
 
-    /**
-     * The idle drift is a first impression, not a feature: it shows the globe is
-     * alive and turns a dense face towards the viewer.
-     *
-     * It gives way in two stages. Moving the pointer onto the globe pauses it,
-     * so the outline under the cursor holds still long enough to be aimed at and
-     * read — without that, hovering a country and clicking it are aiming at two
-     * different places. Actually taking hold of it — a drag, a wheel, or a click
-     * that opens a region — stops it for good, because once someone is reading
-     * the map it should never move on its own again.
-     */
+    // The idle drift gives way in two stages: the pointer entering the globe
+    // pauses it, so hovering a country and clicking it aim at the same place,
+    // and any real interaction stops it for good.
     let userEngaged = false;
     let pointerOverGlobe = false;
     const stopIdleSpin = () => {
@@ -358,9 +342,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
       uPointSize: { value: 2.6 },
       uColorLow: { value: new THREE.Color('#1b4a6b') },
       uColorHigh: { value: new THREE.Color('#58b0cc') },
-      // Held well down: since the atlas outlines arrived, the icosahedron's job
-      // is to give the sphere a body, not to be the thing the eye reads. At
-      // full strength its triangles compete with the coastlines.
+      // Held down: the icosahedron gives the sphere a body, but at full
+      // strength its triangles compete with the coastlines.
       uOpacity: { value: 0.16 },
       uRound: { value: 0 },
     };
@@ -401,8 +384,7 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     /* -- Density splotches ------------------------------------------------ */
     const codes = Object.keys(data.regions);
     codesRef.current = codes;
-    // One shared numbering across splotches, borders and fills, so a region's
-    // index means the same thing in every layer.
+    // One numbering shared by splotches, borders and fills.
     regionIndexRef.current = new Map(codes.map((code, i) => [code, i]));
     const regionColors = createRegionColorTexture(codes.length);
     regionColorsRef.current = regionColors;
@@ -442,9 +424,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     splotchRef.current = splotches;
 
     /* -- Invisible pick target -------------------------------------------- */
-    // Clicks are resolved by intersecting a solid sphere and then finding the
-    // nearest centroid to that point. Raycasting the splotch cloud directly
-    // would happily pick a region on the far side of the globe.
+    // Clicks intersect a solid sphere first: raycasting the splotch cloud
+    // directly would pick regions on the far side of the globe.
     const pickSphere = new THREE.Mesh(
       new THREE.SphereGeometry(GLOBE_RADIUS, 48, 32),
       new THREE.MeshBasicMaterial({ visible: false }),
@@ -452,11 +433,10 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     scene.add(pickSphere);
 
     /* -- Sizing ------------------------------------------------------------ */
-    // Checked every frame rather than driven by a ResizeObserver. RO callbacks
-    // are delivered as part of the rendering steps, so they can be withheld
-    // exactly when the page is not rendering; comparing two integers per frame
-    // costs nothing and catches every cause of a size change — window resize,
-    // layout shift, devicePixelRatio change, or the panel opening beside it.
+    // Checked per frame rather than by ResizeObserver: RO callbacks are
+    // delivered as part of the rendering steps, so they can be withheld exactly
+    // when the page is not rendering. Two integer comparisons cost nothing and
+    // catch every cause of a size change.
     const syncSize = () => {
       const w = mount.clientWidth;
       const h = mount.clientHeight;
@@ -468,8 +448,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
       if (canvasEl.width === needed.w && canvasEl.height === needed.h) return;
 
       renderer.setPixelRatio(ratio);
-      // updateStyle must stay on: without it the canvas keeps its backing-store
-      // size in CSS pixels and renders at devicePixelRatio times too large.
+      // updateStyle must stay on, or the canvas renders devicePixelRatio times
+      // too large.
       renderer.setSize(w, h);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
@@ -482,9 +462,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     const pointer = new THREE.Vector2();
     let downAt: { x: number; y: number } | null = null;
 
-    /** The one place a screen position becomes a region. Hover and click both
-     *  go through it, so the outline that lights up is always the region a
-     *  click would open. */
+    /** Screen position to region. Hover and click both go through it, so the
+     *  lit outline is always the region a click would open. */
     const regionAt = (clientX: number, clientY: number): string | null => {
       const rect = renderer.domElement.getBoundingClientRect();
       pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
@@ -499,8 +478,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
       const { lat, lng } = vector3ToLatLng(local);
 
       const index = pickIndexRef.current;
-      // Until the atlases land there are no shapes to test against, so the
-      // globe falls back to the nearest centroid and stays fully clickable.
+      // Until the atlases land there are no shapes to test, so fall back to
+      // the nearest centroid and stay clickable.
       if (!index) {
         let best: string | null = null;
         let bestDist = Infinity;
@@ -535,9 +514,7 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
       // While dragging the globe the pointer is steering, not pointing.
       if (downAt) return;
       const code = regionAt(e.clientX, e.clientY);
-      hoverUniformRef.current.value = code
-        ? (regionIndexRef.current.get(code) ?? -1)
-        : -1;
+      hoverUniformRef.current.value = code ? (regionIndexRef.current.get(code) ?? -1) : -1;
       canvas.style.cursor = code ? 'pointer' : 'grab';
     };
 
@@ -564,9 +541,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     canvas.addEventListener('pointerup', onPointerUp);
 
     /* -- Loop -------------------------------------------------------------- */
-    // Timer replaces the deprecated Clock; connecting it to the document lets
-    // it use the Page Visibility API so returning to a backgrounded tab does
-    // not deliver one enormous delta.
+    // Connected to the document so the Page Visibility API applies: returning
+    // to a backgrounded tab must not deliver one enormous delta.
     const timer = new THREE.Timer();
     timer.connect(document);
     let frame = 0;
@@ -610,8 +586,7 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
   }, [data]);
 
   // ---- Outlines: added once the atlases arrive --------------------------
-  // Kept out of the scene effect so the globe appears immediately and the
-  // borders fade in behind it, rather than the whole view waiting on 850 kB.
+  // Kept out of the scene effect so the globe appears without waiting on 850 kB.
   useEffect(() => {
     const scene = sceneRef.current;
     if (!scene || !topologies) return;
@@ -623,12 +598,10 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
         OCCLUDED_BY_DETAIL_LAYER,
       ),
       // The states layer is drawn in full; the US country shape it covers was
-      // dropped above, so no border is drawn twice.
+      // dropped above, so nothing is drawn twice.
       ...collectPolygons(topologies.states, stateIdToRegionCode, new Set()),
     ];
 
-    // Hover and click both resolve through this, so the outline that lights up
-    // is always the region a click would open.
     pickIndexRef.current = buildPickIndex(
       shapes,
       codesRef.current,
@@ -702,16 +675,15 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
     const codes = codesRef.current;
     const sizes = splotches.geometry.getAttribute('aSize') as THREE.BufferAttribute;
     const colors = splotches.geometry.getAttribute('aColor') as THREE.BufferAttribute;
-    // The fills read their colour from this texture, so writing it here is what
-    // keeps territory and splotch showing the same era.
+    // The fills read their colour from this texture, which is what keeps
+    // territory and splotch on the same era.
     const regionColors = regionColorsRef.current;
     const texels = regionColors?.image.data as Uint8Array | undefined;
 
     codes.forEach((code, i) => {
       const slice = data.regions[code].eras[era];
-      // A slice with nothing in it is unlit rather than dim: in myth mode most
-      // of the globe is empty, and painting it density-1 blue would claim a
-      // story is there.
+      // An empty slice is unlit rather than dim: painting it density-1 blue
+      // would claim a story is there.
       const empty = slice.items.length === 0;
       const density = empty ? 0 : slice.density;
       const rgb = densityRgb(empty ? null : density);
@@ -722,9 +694,8 @@ export default function Globe({ data, era, selectedCode, onSelect }: GlobeProps)
         texels[i * 4 + 2] = Math.round(rgb[2] * 255);
         texels[i * 4 + 3] = 255;
       }
-      // Area grows quadratically so a 5 reads as a hot splotch spanning a good
-      // fraction of the globe while a 1 stays an ember. Sizes are in device
-      // pixels at unit distance; the shader divides by view depth.
+      // Quadratic area, so a 5 reads as a broad splotch and a 1 as an ember.
+      // Device pixels at unit distance; the shader divides by view depth.
       const base = empty ? 0 : 52 + density * density * 9.5;
       sizes.setX(i, code === selectedCode ? base * 1.5 : base);
       colors.setXYZ(i, rgb[0], rgb[1], rgb[2]);

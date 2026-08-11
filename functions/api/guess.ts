@@ -2,19 +2,16 @@ import { data, json, methodNotAllowed, type Env } from '../_lib/env';
 import { fetchImageCredits, type ImageCredit } from '../_lib/wikimedia';
 
 /**
- * The guessing round.
+ * The guessing round. Two shapes on one route: a body with no roundId starts a
+ * round, a body with one scores it.
  *
- * Two shapes on one route: a body with no roundId starts a round, a body with
- * one scores it.
- *
- * The answer never travels to the browser until the guess is in. The round is
- * a random id in KV pointing at an entry key, so the client holds nothing but
- * a picture and an opaque token — there is no name in the payload to read out
- * of the network tab, which is the whole point of a game with no hints.
+ * The answer never reaches the browser until the guess is in — the round is a
+ * random KV id pointing at an entry key, so there is no name in the payload to
+ * read out of the network tab.
  */
 
-/** Candidates sampled per round. Wikipedia takes them all in one query, and
- *  most articles have a lead image, so one batch is nearly always enough. */
+/** Candidates sampled per round. Wikipedia takes them in one query, and most
+ *  have a lead image, so one batch is nearly always enough. */
 const SAMPLE = 14;
 /** A round is a single sitting; anything older has been abandoned. */
 const ROUND_TTL_SECONDS = 60 * 60 * 3;
@@ -48,8 +45,8 @@ async function startRound(env: Env): Promise<Response> {
   const keys = Object.keys(data.items);
   const sample = pickDistinct(keys, SAMPLE);
 
-  // Titles are decoded here and matched back by title afterwards, because the
-  // Wikimedia response is keyed by article title rather than by our own keys.
+  // Matched back by title, since the Wikimedia response is keyed by article
+  // title rather than by our keys.
   const byTitle = new Map(
     sample.map((key) => [decodeURIComponent(data.items[key].wiki), key]),
   );
@@ -63,8 +60,7 @@ async function startRound(env: Env): Promise<Response> {
 
   const found = credits.find((credit) => byTitle.has(credit.forTitle));
   if (!found) {
-    // Every candidate in this sample lacks a lead image. Rare, and the client
-    // simply asks again rather than being handed a blank round.
+    // No candidate in this sample has a lead image; the client asks again.
     return json({ error: 'No picture came back for this round', retry: true }, 503);
   }
 
@@ -99,9 +95,8 @@ async function score(env: Env, roundId: string, regionCode: unknown): Promise<Re
   const item = data.items[round.entryKey];
   if (!item) return json({ error: 'That round has expired', expired: true }, 410);
 
-  // Every region that lists this creature in any era counts. A creature can be
-  // shared across a whole belt of islands or a continent's worth of borders,
-  // and naming any of its homes is a right answer.
+  // Every region listing this creature in any era counts: naming any of its
+  // homes is a right answer.
   const homes = Object.entries(data.regions)
     .filter(([, region]) =>
       Object.values(region.eras).some((keys) => keys.includes(round.entryKey)),
@@ -111,14 +106,11 @@ async function score(env: Env, roundId: string, regionCode: unknown): Promise<Re
   const correct = homes.some((home) => home.code === regionCode);
   const guessed = data.regions[regionCode];
 
-  // How far off, measured to the nearest home rather than to an arbitrary one,
-  // so a guess next door to any of them reads as close.
+  // Measured to the nearest home, so a guess next door to any of them is close.
   const distanceKm = correct
     ? 0
     : Math.round(
-        Math.min(
-          ...homes.map((home) => haversineKm(guessed.centroid, home.centroid)),
-        ),
+        Math.min(...homes.map((home) => haversineKm(guessed.centroid, home.centroid))),
       );
 
   return json(
@@ -142,8 +134,8 @@ async function score(env: Env, roundId: string, regionCode: unknown): Promise<Re
 
 /* -- Helpers --------------------------------------------------------------- */
 
-/** A random sample without replacement — a partial Fisher-Yates over a copy,
- *  so the same creature cannot appear twice in one batch of candidates. */
+/** Sample without replacement: a partial Fisher-Yates over a copy, so no
+ *  creature appears twice in one batch. */
 function pickDistinct(keys: string[], count: number): string[] {
   const pool = [...keys];
   const take = Math.min(count, pool.length);

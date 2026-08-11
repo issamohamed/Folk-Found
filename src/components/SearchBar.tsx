@@ -8,12 +8,8 @@ interface SearchBarProps {
   onPick: (hit: SearchHit) => void;
 }
 
-/**
- * The way in for a reader who knows what they are looking for but not where it
- * lives — which is most people, most of the time. Type a name, a description or
- * a feeling; the results carry you to a region that holds it, with that
- * creature already picked out of the roll.
- */
+/** Search by name, description or feeling. Picking a result opens the region
+ *  that holds the creature, with the creature already focused. */
 export default function SearchBar({ data, era, onPick }: SearchBarProps) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);

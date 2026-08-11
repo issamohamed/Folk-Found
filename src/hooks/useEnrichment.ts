@@ -28,11 +28,8 @@ export interface Enrichment {
 
 const EMPTY: Enrichment = { images: [], summary: null, summaryLabel: null, loading: false };
 
-/**
- * Images and the wiki card. Both are enrichment around the prose, so a failure
- * in either resolves to "nothing to show" rather than an error state — the
- * panel is still worth reading without them.
- */
+/** Images and the wiki card. Both are enrichment around the prose, so either
+ *  failing resolves to "nothing to show" rather than an error state. */
 export function useEnrichment(
   view: RegionView | null,
   focusKey: string | null = null,
@@ -56,8 +53,7 @@ export function useEnrichment(
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        // With a creature focused, both endpoints narrow to it: its own
-        // pictures, its own article, or nothing.
+        // With a creature focused, both endpoints narrow to it.
         body: JSON.stringify({
           regionCode: code,
           era,

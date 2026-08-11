@@ -6,17 +6,11 @@ import { latLngToVector3 } from './geo';
 
 /**
  * Country and US-state outlines, projected from the flat map's TopoJSON onto
- * the globe.
+ * the globe. Rings arrive as GeoJSON [lng, lat] and are flipped at projection.
  *
- * The same two atlases feed both views, so a shape the reader clicks on the
- * flat map is the shape they see on the globe. Rings arrive as [lng, lat] —
- * GeoJSON's order — and are handed to latLngToVector3 in the data's [lat, lng]
- * order at the point of projection.
- *
- * Everything is merged into one geometry per layer with a per-vertex region
- * index. That keeps the whole world to two draw calls, and lets an era change
- * or a hover be a uniform update rather than a rebuild: the shaders look each
- * region's colour up in a small texture indexed by that attribute.
+ * Everything merges into one geometry per layer with a per-vertex region index,
+ * which keeps the world to two draw calls and makes an era change or a hover a
+ * uniform update rather than a rebuild.
  */
 
 /** A closed ring of [lng, lat] pairs. */
@@ -29,21 +23,17 @@ export type Polygon = Ring[];
 export const NO_REGION = -1;
 
 /**
- * Longest edge, in degrees, before a segment is subdivided.
- *
- * Interpolation is linear in lng/lat rather than along a great circle, which is
- * what makes a border that follows a parallel — the US/Canada 49th, Egypt's
- * southern edge — stay on that parallel instead of bowing poleward. At two
- * degrees the sag of a chord below the sphere is under 2e-4 of the radius,
- * well inside the offset the lines are already lifted by.
+ * Longest edge, in degrees, before a segment is subdivided. Interpolation is
+ * linear in lng/lat, not great-circle, so a border following a parallel stays
+ * on it instead of bowing poleward. At two degrees the chord sag is under 2e-4
+ * of the radius — inside the offset the lines are already lifted by.
  */
 const MAX_STEP_DEG = 2;
 
 /**
- * Pull every polygon out of a topology, keyed by the folklore region its id
- * resolves to. Shapes that resolve to nothing are kept under NO_REGION so the
- * continents stay whole; shapes covered by a more detailed layer are dropped so
- * their borders are not drawn twice.
+ * Every polygon in a topology, keyed by the region its id resolves to. Shapes
+ * resolving to nothing are kept under NO_REGION so the continents stay whole;
+ * shapes covered by a detail layer are dropped so borders are not drawn twice.
  */
 export function collectPolygons(
   topology: unknown,
@@ -73,13 +63,9 @@ export function collectPolygons(
   return out;
 }
 
-/**
- * Merged line segments for every ring, lifted to `radius`.
- *
- * Segments rather than line loops: one geometry can then hold every ring of
- * every region, and a ring that was split at the antimeridian simply drops the
- * segment that would otherwise streak all the way around the globe.
- */
+/** Merged line segments for every ring, lifted to `radius`. Segments rather
+ *  than loops, so one geometry holds every ring and a ring split at the
+ *  antimeridian can simply drop the seam. */
 export function buildBorderGeometry(
   shapes: Array<{ code: string | null; polygons: Polygon[] }>,
   regionIndex: ReadonlyMap<string, number>,
@@ -118,8 +104,7 @@ function appendRingSegments(
     const [lng2, lat2] = ring[i + 1];
 
     // A jump of more than half the world means the ring was cut at the
-    // antimeridian. Joining those two points would draw a line straight across
-    // the globe, so the seam segment is skipped.
+    // antimeridian; joining those points would streak across the globe.
     if (Math.abs(lng2 - lng1) > 180) continue;
 
     const span = Math.max(Math.abs(lng2 - lng1), Math.abs(lat2 - lat1));
@@ -143,12 +128,10 @@ function appendRingSegments(
 /**
  * Merged filled triangles for every region, at `radius`.
  *
- * Rings are triangulated flat in lng/lat with three's earcut, then each
- * triangle is subdivided until its edges are short enough that projecting the
- * corners onto the sphere leaves no visible chord sag, and only then projected.
- * Triangulating first and subdividing after keeps the earcut input small — the
- * alternative, densifying rings before triangulation, multiplies the hardest
- * part of the work for no gain in the interior.
+ * Rings are triangulated flat with earcut, then each triangle is subdivided
+ * until projecting its corners leaves no visible chord sag. Triangulating first
+ * keeps the earcut input small; densifying rings beforehand would multiply the
+ * hardest part of the work for nothing.
  */
 export function buildFillGeometry(
   shapes: Array<{ code: string | null; polygons: Polygon[] }>,
@@ -165,10 +148,9 @@ export function buildFillGeometry(
     for (const polygon of polygons) {
       if (!polygon[0] || polygon[0].length < 4) continue;
 
-      // Longitudes are unwrapped past ±180 so a country straddling the
-      // antimeridian triangulates as one connected shape rather than two halves
-      // joined across the whole map. Projection is trigonometric, so a
-      // longitude of 190 lands in exactly the same place as -170.
+      // Unwrapped past ±180 so a country straddling the antimeridian
+      // triangulates as one shape. Projection is trigonometric, so 190 lands
+      // exactly where -170 does.
       const rings = polygon.map(unwrapRing);
 
       // Earcut wants open rings; GeoJSON closes them.
@@ -194,8 +176,7 @@ export function buildFillGeometry(
       try {
         faces = THREE.ShapeUtils.triangulateShape(contour, holes);
       } catch {
-        // A self-intersecting ring is a defect in the atlas, not something to
-        // crash the globe over. The outline still draws.
+        // A self-intersecting ring is an atlas defect; the outline still draws.
         continue;
       }
 

@@ -1,10 +1,5 @@
 import { data, json, methodNotAllowed, type Item, type Env } from '../_lib/env';
-import {
-  GROQ_SEARCH_MODEL,
-  GroqError,
-  groqComplete,
-  type ChatMessage,
-} from '../_lib/groq';
+import { GROQ_SEARCH_MODEL, GroqError, groqComplete, type ChatMessage } from '../_lib/groq';
 
 /** Most a reader can usefully scan in a dropdown. */
 const MAX_MATCHES = 8;
@@ -25,14 +20,12 @@ interface CachedSearch {
 }
 
 /**
- * Semantic search across the active mode’s dictionary — creatures, or stories.
+ * Semantic search across the bundled dictionary.
  *
- * The catalog is built from the bundled data file for the active mode, and every key the model
- * returns is checked back against it, so a hallucinated creature cannot reach
- * the reader — the worst case is a shorter list, never an invented one. The
- * label, type and seed all go into the prompt because the seeds are what make
- * "shape-shifting water horse" find the kelpie; matching on names alone would
- * make this an autocomplete rather than a search.
+ * Every key the model returns is checked back against the catalog, so a
+ * hallucinated creature cannot reach the reader — the worst case is a shorter
+ * list. Label, type and seed all go into the prompt: the seeds are what make
+ * "shape-shifting water horse" find the kelpie.
  */
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   let body: { query?: unknown };
@@ -90,7 +83,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   await env.FOLKLORE_CACHE.put(
     cacheKey,
-    JSON.stringify({ matches, searchedAt: new Date().toISOString() } satisfies CachedSearch),
+    JSON.stringify({
+      matches,
+      searchedAt: new Date().toISOString(),
+    } satisfies CachedSearch),
     // Queries are open-ended, so this cache would grow without bound. A month
     // keeps the common ones warm and lets the long tail expire.
     { expirationTtl: 60 * 60 * 24 * 30 },
@@ -148,10 +144,45 @@ const SEED_CLIP = 72;
 
 /** Words too common to say anything about which creature is meant. */
 const STOPWORDS = new Set([
-  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'can', 'for', 'from',
-  'in', 'into', 'is', 'it', 'its', 'of', 'on', 'or', 'that', 'the', 'their',
-  'them', 'they', 'this', 'to', 'was', 'were', 'who', 'with', 'something',
-  'someone', 'creature', 'creatures', 'thing', 'things', 'like', 'about',
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'but',
+  'by',
+  'can',
+  'for',
+  'from',
+  'in',
+  'into',
+  'is',
+  'it',
+  'its',
+  'of',
+  'on',
+  'or',
+  'that',
+  'the',
+  'their',
+  'them',
+  'they',
+  'this',
+  'to',
+  'was',
+  'were',
+  'who',
+  'with',
+  'something',
+  'someone',
+  'creature',
+  'creatures',
+  'thing',
+  'things',
+  'like',
+  'about',
 ]);
 
 function tokenize(text: string): string[] {

@@ -12,13 +12,9 @@ interface GuesserProps {
 }
 
 /**
- * The guessing panel.
- *
- * A picture and nothing else — no name, no kind, no seed fact, and crucially no
- * image title, since the title is the creature's name and would end the game
- * before it started. The author and licence stay on screen throughout, because
- * attribution is a condition of using the picture at all and is not the
- * game's to trade away.
+ * The guessing panel: a picture and nothing else. No title, since the title is
+ * the creature's name. Author and licence stay on screen throughout — that is a
+ * condition of using the picture, not the game's to trade away.
  */
 export default function Guesser({
   state,
@@ -34,10 +30,9 @@ export default function Guesser({
 
   return (
     <aside className="guess" role="region" aria-label="Guess the origin">
-      {/* The frame carries the glass and never scrolls; this inner body is what
-          moves. Putting backdrop-filter on a scrolling element makes the browser
-          composite it as one layer and quietly drop repaints of anything added
-          to it later — which left the whole reveal invisible. */}
+      {/* The frame carries the glass and never scrolls; this body does.
+          backdrop-filter on a scrolling element makes the browser composite it
+          as one layer and drop later repaints, which hid the whole reveal. */}
       <div className="guess__body">
         <header className="guess__head">
           <p className="guess__eyebrow">Where is it from?</p>
@@ -51,7 +46,7 @@ export default function Guesser({
             <img
               className="guess__img"
               src={image.src}
-              // Naming it would give the answer away; the picture is the question.
+              // Naming it would give the answer away.
               alt="A folklore figure from somewhere in the world"
               key={image.src}
             />
@@ -63,7 +58,7 @@ export default function Guesser({
         </div>
 
         {image ? (
-          /* No title here — that is the answer. Author, licence and source only. */
+          /* No title here — that is the answer. */
           <p className="guess__credit">
             {image.author} ·{' '}
             {image.licenseUrl ? (

@@ -18,11 +18,9 @@ interface WorldMapProps {
   onSelect: (code: string) => void;
 }
 
-/** A region that no rendered shape can resolve to, reached by a centroid dot
- *  instead. Covers small territories absent at 50m resolution (Tuvalu, Tokelau,
- *  Christmas I.), sub-national regions inside a larger shape (Scotland,
- *  Siberia), overseas départements merged into their parent, and any region
- *  occluded by a detail layer. */
+/** A region with no shape of its own, reached by a centroid dot instead:
+ *  territories absent at 50m resolution, sub-national regions inside a larger
+ *  shape, and anything occluded by a detail layer. */
 interface MarkerRegion {
   code: string;
   name: string;
@@ -30,13 +28,12 @@ interface MarkerRegion {
 }
 
 export default function WorldMap({ data, era, selectedCode, onSelect }: WorldMapProps) {
-  // The two atlases are ~850 kB together and only this view needs them, so they
-  // are fetched here rather than by the app shell — a visitor who stays on the
-  // globe never downloads them.
+  // ~850 kB of atlases, fetched here rather than by the app shell so the globe
+  // never pays for them.
   const { topologies, error } = useTopologies();
 
-  // Which regions have no clickable shape, computed from the atlases rather
-  // than hardcoded, so it stays correct if either the data or an atlas changes.
+  // Computed from the atlases rather than hardcoded, so it survives a change
+  // to either the data or an atlas.
   const markerRegions = useMemo<MarkerRegion[]>(() => {
     if (!topologies) return [];
     const claimed = claimedCodes(topologies, countryIdToRegionCode, stateIdToRegionCode);
@@ -45,7 +42,7 @@ export default function WorldMap({ data, era, selectedCode, onSelect }: WorldMap
       .map(([code, region]) => ({
         code,
         name: region.name,
-        // folklore.json stores [lat, lng]; react-simple-maps wants [lng, lat].
+        // The data stores [lat, lng]; react-simple-maps wants [lng, lat].
         coordinates: [region.centroid[1], region.centroid[0]] as [number, number],
       }));
   }, [data, topologies]);
@@ -55,9 +52,8 @@ export default function WorldMap({ data, era, selectedCode, onSelect }: WorldMap
     resolve: (id: string | number) => string | null,
   ) => {
     const code = geo.id === undefined ? null : resolve(geo.id);
-    // A shape is interactive only when it actually holds something in this era
-    // and is not covered by a more detailed layer. In myth mode most regions
-    // hold nothing, so this is what keeps a click from coming back empty.
+    // Interactive only when the region holds something in this era and is not
+    // covered by a more detailed layer, so a click can never come back empty.
     const interactive =
       !!code && hasContent(data, code, era) && !OCCLUDED_BY_DETAIL_LAYER.has(code);
 
@@ -84,8 +80,7 @@ export default function WorldMap({ data, era, selectedCode, onSelect }: WorldMap
   }
 
   return (
-    // Equal Earth renders the world at a 2.055:1 aspect; the viewBox and scale
-    // are fitted to it so the map neither overflows nor floats in dead space.
+    // Equal Earth is 2.055:1; the viewBox and scale are fitted to it.
     <ComposableMap
       projection="geoEqualEarth"
       projectionConfig={{ scale: 166 }}
@@ -119,8 +114,8 @@ export default function WorldMap({ data, era, selectedCode, onSelect }: WorldMap
               data-region={region.code}
               data-selected={region.code === selectedCode ? 'true' : undefined}
             >
-              {/* Sized as well as coloured by density, so these read as the same
-                  signal as the filled shapes rather than as separate pins. */}
+              {/* Sized as well as coloured, so these read as the same signal
+                  as the filled shapes rather than as pins. */}
               <circle
                 r={1.8 + density * 0.5}
                 fill={densityFill(density)}

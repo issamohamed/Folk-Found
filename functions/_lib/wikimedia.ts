@@ -1,17 +1,12 @@
 /**
- * Wikimedia access, with attribution treated as a hard requirement.
+ * Wikimedia access. Two rules are load-bearing:
  *
- * Two deliberate rules live here:
- *
- * 1. Images come from each article's *lead image* (`prop=pageimages`), not from
- *    its raw file list. The raw list is unfiltered and includes interface icons
- *    and, on some folklore articles, explicit historical art that has no place
- *    in this UI. The lead image is editorially chosen and representative.
- *
- * 2. Only files served from /wikipedia/commons/ are returned. Files hosted
- *    locally on en.wikipedia are typically non-free "fair use" uploads, which we
- *    have no right to redisplay. Commons files carry a free licence, and we
- *    surface its name and the author alongside every image.
+ * 1. Images come from each article's lead image (`prop=pageimages`), not its
+ *    raw file list — the raw list holds interface icons and, on some folklore
+ *    articles, explicit historical art.
+ * 2. Only files under /wikipedia/commons/ are returned. Locally hosted
+ *    en.wikipedia files are usually non-free, so redisplaying them is not ours
+ *    to do. Every returned image carries its licence and author.
  */
 
 const WIKI_API = 'https://en.wikipedia.org/w/api.php';
@@ -49,11 +44,8 @@ async function wikiFetch(url: string): Promise<unknown> {
   return res.json();
 }
 
-/**
- * MediaWiki treats underscores and spaces as equivalent in titles and echoes
- * them back normalised to spaces. Keying maps on the raw string silently loses
- * every multi-word filename, so both sides go through this first.
- */
+/** MediaWiki treats underscores and spaces as equivalent and echoes titles back
+ *  normalised, so both sides of a lookup go through this first. */
 function normalizeTitle(title: string): string {
   return title.replace(/_/g, ' ').trim();
 }
@@ -94,10 +86,8 @@ interface ImageInfoResponse {
   };
 }
 
-/**
- * Lead image plus full attribution for each article title.
- * Two batched requests regardless of how many titles are asked for.
- */
+/** Lead image plus attribution for each title, in two batched requests however
+ *  many titles are asked for. */
 export async function fetchImageCredits(
   titles: string[],
   thumbWidth = 800,
@@ -158,21 +148,16 @@ export async function fetchImageCredits(
     });
   }
 
-  // Preserve the order the caller asked for, so the region's first creature
-  // leads the image strip.
+  // Caller's order, so the region's first creature leads the strip.
   const rank = new Map(titles.map((t, i) => [t, i]));
   credits.sort((a, b) => (rank.get(a.forTitle) ?? 99) - (rank.get(b.forTitle) ?? 99));
   return credits;
 }
 
 /**
- * Which of these article titles actually exist, in the order given.
- *
- * Roughly one title in twelve across folklore.json points at a page that is not
- * on Wikipedia (or has since been merged away). Checking in one batched request
- * lets the wiki card fall back to the region's next creature instead of
- * silently disappearing. Redirects are resolved, so an old title still counts
- * as present.
+ * Which of these titles actually exist, in the order given. Roughly one in
+ * twelve points at a page that is gone, so this lets the wiki card fall back to
+ * the next creature. Redirects are resolved, so an old title still counts.
  */
 export async function filterExistingTitles(titles: string[]): Promise<string[]> {
   if (titles.length === 0) return [];
@@ -188,8 +173,8 @@ export async function filterExistingTitles(titles: string[]): Promise<string[]> 
     };
   };
 
-  // Map each surviving page back to the title the caller asked for, following
-  // the normalisation and redirect chains the API reports.
+  // Back to the caller's titles, following the API's normalisation and
+  // redirect chains.
   const present = new Set(
     (body.query?.pages ?? [])
       .filter((page) => !page.missing && page.title)
@@ -216,13 +201,9 @@ export async function filterExistingTitles(titles: string[]): Promise<string[]> 
 }
 
 /**
- * First sentence of an extract. The REST endpoint returns a whole lead
- * paragraph, but the wiki card is meant to be a one-line doorway, not a second
- * article competing with the prose above it.
- *
- * Sentence splitting is done conservatively: a full stop only ends the sentence
- * when followed by whitespace and a capital, which keeps "St. Nicholas" and
- * "c. 1500" intact.
+ * First sentence of an extract — the endpoint returns a whole lead paragraph,
+ * but the card is a one-line doorway. A full stop only ends the sentence when
+ * followed by whitespace and a capital, which keeps "St. Nicholas" intact.
  */
 export function firstSentence(extract: string, maxChars = 220): string {
   const text = extract.trim();
@@ -230,7 +211,7 @@ export function firstSentence(extract: string, maxChars = 220): string {
   const sentence = match ? text.slice(0, match.index + 1) : text;
   if (sentence.length <= maxChars) return sentence;
 
-  // Still too long: cut on a word boundary rather than mid-word.
+  // Still too long: cut on a word boundary.
   const clipped = sentence.slice(0, maxChars);
   const lastSpace = clipped.lastIndexOf(' ');
   return `${(lastSpace > 0 ? clipped.slice(0, lastSpace) : clipped).replace(/[,;:]$/, '')}…`;

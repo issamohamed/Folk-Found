@@ -7,12 +7,9 @@ export interface Description {
   cached: boolean;
 }
 
-/**
- * Why the prose is missing, in terms the panel can actually say something
- * useful about. The distinction matters: a rate limit is worth waiting out, a
- * dropped connection is worth retrying now, and an unconfigured service is not
- * the reader's problem at all.
- */
+/** Why the prose is missing. The distinction matters: a rate limit is worth
+ *  waiting out, a dropped connection is worth retrying now, and an
+ *  unconfigured service is not worth offering a retry for. */
 export type DescriptionFailure = 'rate-limit' | 'offline' | 'unconfigured' | 'unavailable';
 
 export type DescriptionState =
@@ -22,14 +19,11 @@ export type DescriptionState =
   | { status: 'error'; reason: DescriptionFailure };
 
 /**
- * Fetches the generated prose for what the reader is currently looking at:
- * a whole region and era, or a single creature picked out of its roll.
+ * Fetches the prose for a region and era, or for one creature in it.
  *
- * The Worker owns the prompt, the Groq key and the KV cache; this only says
- * which region, which era, and which creature if any. The entries are sent
- * along because that is the endpoint's documented shape, but the Worker
- * resolves them from its own bundled copy of entities.json, so nothing here can
- * influence what the model is told.
+ * The Worker owns the prompt, the key and the cache. Entries are sent because
+ * that is the endpoint's shape, but the Worker resolves them from its own copy
+ * of the data, so nothing here can influence what the model is told.
  */
 export function useDescription(
   view: RegionView | null,
@@ -93,8 +87,7 @@ export function useDescription(
       });
 
     return () => controller.abort();
-    // `view` is rebuilt on every render; the region, the era, the focused
-    // creature and an explicit retry are what actually identify a request.
+    // `view` is rebuilt every render; these four identify the request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, era, focusKey, attempt]);
 
@@ -113,7 +106,6 @@ function classify(err: unknown): DescriptionFailure {
     if (err.status === 503) return 'unconfigured';
     return 'unavailable';
   }
-  // fetch only rejects when the request never completed — no network, DNS
-  // failure, or the dev API not running.
+  // fetch only rejects when the request never completed.
   return 'offline';
 }

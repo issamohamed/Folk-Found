@@ -39,16 +39,14 @@ export type RoundState =
   | { status: 'revealed'; image: RoundImage; verdict: Verdict }
   | { status: 'error'; message: string };
 
-/** Sampling can come back empty when none of the candidates has a lead image.
- *  Rare, and worth one quiet retry before bothering the player about it. */
+/** Sampling can come back empty when no candidate has a lead image. Rare, and
+ *  worth a quiet retry before bothering the player. */
 const DEAL_ATTEMPTS = 3;
 
 /**
- * One round of the guessing game.
- *
- * The answer lives on the Worker until a guess is submitted, so nothing here
- * ever holds the region it is asking about — the state machine only knows a
- * picture, an opaque round id, and eventually a verdict.
+ * One round of the guessing game. The answer stays on the Worker until a guess
+ * is submitted, so this only ever holds a picture, an opaque round id, and
+ * eventually a verdict.
  */
 export function useGuessRound() {
   const [state, setState] = useState<RoundState>({ status: 'dealing' });
@@ -68,9 +66,11 @@ export function useGuessRound() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
-      const body = (await res.json().catch(() => null)) as
-        | { roundId?: string; image?: RoundImage; retry?: boolean }
-        | null;
+      const body = (await res.json().catch(() => null)) as {
+        roundId?: string;
+        image?: RoundImage;
+        retry?: boolean;
+      } | null;
 
       if (generation !== generationRef.current) return;
 
@@ -94,52 +94,49 @@ export function useGuessRound() {
 
   useEffect(deal, [deal]);
 
-  const submit = useCallback(
-    (regionCode: string) => {
-      const roundId = roundIdRef.current;
-      if (!roundId) return;
+  const submit = useCallback((regionCode: string) => {
+    const roundId = roundIdRef.current;
+    if (!roundId) return;
 
-      const generation = generationRef.current;
-      setState((prev) =>
-        prev.status === 'guessing' ? { status: 'scoring', image: prev.image } : prev,
-      );
+    const generation = generationRef.current;
+    setState((prev) =>
+      prev.status === 'guessing' ? { status: 'scoring', image: prev.image } : prev,
+    );
 
-      fetch('/api/guess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roundId, regionCode }),
-      })
-        .then(async (res) => {
-          const verdict = (await res.json()) as Verdict;
-          if (!res.ok) throw new Error('Scoring failed');
-          if (generation !== generationRef.current) return;
+    fetch('/api/guess', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roundId, regionCode }),
+    })
+      .then(async (res) => {
+        const verdict = (await res.json()) as Verdict;
+        if (!res.ok) throw new Error('Scoring failed');
+        if (generation !== generationRef.current) return;
 
-          setState((prev) =>
-            prev.status === 'scoring'
-              ? { status: 'revealed', image: prev.image, verdict }
-              : prev,
-          );
-          setTally((t) => {
-            const streak = verdict.correct ? t.streak + 1 : 0;
-            return {
-              played: t.played + 1,
-              correct: t.correct + (verdict.correct ? 1 : 0),
-              streak,
-              best: Math.max(t.best, streak),
-            };
-          });
-        })
-        .catch(() => {
-          if (generation !== generationRef.current) return;
-          setState((prev) =>
-            prev.status === 'scoring'
-              ? { status: 'error', message: 'Could not score that guess.' }
-              : prev,
-          );
+        setState((prev) =>
+          prev.status === 'scoring'
+            ? { status: 'revealed', image: prev.image, verdict }
+            : prev,
+        );
+        setTally((t) => {
+          const streak = verdict.correct ? t.streak + 1 : 0;
+          return {
+            played: t.played + 1,
+            correct: t.correct + (verdict.correct ? 1 : 0),
+            streak,
+            best: Math.max(t.best, streak),
+          };
         });
-    },
-    [],
-  );
+      })
+      .catch(() => {
+        if (generation !== generationRef.current) return;
+        setState((prev) =>
+          prev.status === 'scoring'
+            ? { status: 'error', message: 'Could not score that guess.' }
+            : prev,
+        );
+      });
+  }, []);
 
   return { state, tally, submit, next: deal };
 }
