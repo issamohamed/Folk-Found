@@ -1,0 +1,18 @@
+node_modules/
+dist/
+.wrangler/
+
+# Local secrets — the Groq key lives here in dev and in `wrangler pages secret`
+# in production. It must never reach the frontend bundle or the repo.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+# Wrangler only ever reads the dotted name, so an undotted copy is always a
+# mistake — and one that would otherwise be committed. Ignore it too.
+dev.vars
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log

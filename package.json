@@ -1,0 +1,39 @@
+{
+  "name": "folk-and-found",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "An interactive map of world folklore — every country and every US state, across four eras.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && tsc -p tsconfig.functions.json && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.functions.json",
+    "dev:api": "wrangler pages dev dist --port 8788",
+    "sweep": "mkdir -p node_modules/.cache && esbuild scripts/sweep.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/sweep.mjs --log-level=warning && node node_modules/.cache/sweep.mjs"
+  },
+  "dependencies": {
+    "@types/three": "^0.185.3",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-simple-maps": "^3.0.0",
+    "three": "^0.185.1",
+    "topojson-client": "^3.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260801.1",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@types/react-simple-maps": "^3.0.6",
+    "@types/topojson-client": "^3.1.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.7",
+    "wrangler": "^4.118.0"
+  },
+  "overrides": {
+    "d3-color": "^3.1.0",
+    "undici": "^7.29.0"
+  }
+}

@@ -1,0 +1,1914 @@
+/* Folk & Found
+   Map surface and era rail first, then the glass placard from line ~247. */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: #0d1117;
+  color: #e6edf3;
+}
+
+.state {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #21262d;
+}
+
+.app__title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.app__tagline {
+  margin: 0;
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+
+/* ---- Era rail ------------------------------------------------------------ */
+
+.rail {
+  position: fixed;
+  top: 50%;
+  left: 1.75rem;
+  transform: translateY(-50%);
+}
+
+/* The spine sits behind the dots rather than beside them: it is inset by half a
+   dot at each end so it spans exactly from the first dot's centre to the last. */
+.rail__spine {
+  position: absolute;
+  left: 5px;
+  top: 0.55rem;
+  bottom: 0.55rem;
+  width: 2px;
+  border-radius: 1px;
+  background: #30363d;
+}
+
+/* Fills from the first era down to the active one, so the rail reads as a
+   timeline being travelled rather than four unrelated buttons. */
+.rail__spine-fill {
+  position: absolute;
+  inset: 0 0 auto 0;
+  background: linear-gradient(#2f7a86, #e0453a);
+  border-radius: 1px;
+  transition: height 240ms ease;
+}
+
+.rail__list {
+  position: relative;
+  display: grid;
+  gap: 1.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0;
+  background: none;
+  border: none;
+  color: #8b949e;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rail__dot {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  background: #0d1117;
+  border: 2px solid #30363d;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease;
+}
+
+.rail__btn:hover .rail__dot {
+  border-color: #58a6ff;
+}
+
+.rail__btn.is-active .rail__dot {
+  background: #e0453a;
+  border-color: #e0453a;
+  transform: scale(1.25);
+}
+
+.rail__text {
+  display: grid;
+  line-height: 1.25;
+}
+
+.rail__label {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.rail__range {
+  font-size: 0.7rem;
+  opacity: 0.65;
+}
+
+.rail__btn.is-active {
+  color: #f0f6fc;
+}
+
+/* ---- Density legend ------------------------------------------------------ */
+
+.legend {
+  position: fixed;
+  left: 1.5rem;
+  bottom: 1.25rem;
+  font-size: 0.7rem;
+  color: #8b949e;
+}
+
+.legend__caption {
+  display: block;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-size: 0.6rem;
+}
+
+.legend__scale {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend__item {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.legend__swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+
+.app__map {
+  flex: 1;
+  min-height: 0;
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Shapes that resolve to real data. The fill is set inline from the density
+   ramp for the active era; only stroke and interaction live here. The
+   transition is what makes an era switch read as the map *shifting* rather
+   than snapping. */
+.shape--live {
+  stroke: #0d1117;
+  stroke-width: 0.3;
+  cursor: pointer;
+  outline: none;
+  transition: fill 320ms ease;
+}
+
+.shape--live:hover {
+  stroke: #f0f6fc;
+  stroke-width: 0.7;
+}
+
+.shape--live[data-selected='true'] {
+  stroke: #f0f6fc;
+  stroke-width: 1.1;
+}
+
+/* Shapes with no folklore data (Antarctica, uninhabited territories, disputed
+   areas with no ISO code) and shapes covered by a detail layer. Not clickable,
+   so a click can never come back empty. */
+.shape--inert {
+  fill: #161b22;
+  stroke: #0d1117;
+  stroke-width: 0.3;
+  pointer-events: none;
+}
+
+/* Regions with no shape of their own, reached by their centroid. */
+.marker {
+  cursor: pointer;
+}
+
+.marker__dot {
+  stroke: #0d1117;
+  stroke-width: 0.5;
+  transition:
+    fill 320ms ease,
+    r 320ms ease;
+}
+
+.marker[data-selected='true'] .marker__dot {
+  stroke: #f0f6fc;
+  stroke-width: 1;
+}
+
+/* ===========================================================================
+   The glass placard
+   ---------------------------------------------------------------------------
+   A museum placard made of light: the dark map is blurred behind a pane of
+   translucent white, edged with a thin luminous border and lit from inside.
+   Type is a refined serif for the place name, clean sans for the reading copy.
+   =========================================================================== */
+
+.popup {
+  position: fixed;
+  top: 3.25rem;
+  right: 1.5rem;
+  width: min(30rem, calc(100vw - 3rem));
+  /* Stops short of the floor so the search bar, which is centred and overlaps
+     this column, never sits on top of the last line of an entry. */
+  max-height: calc(100vh - 8.75rem);
+  /* The frame itself never scrolls, so the close button stays put; the body
+     inside it is what moves. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+
+  /* Frosted white glass over a dark scrim. The white gradient gives the pane its
+     lit, milky character; the scrim underneath is what makes the prose legible
+     no matter whether a teeming red region or empty ocean sits behind it. The
+     saturate() keeps the blurred map's colour alive rather than flattening it. */
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.18) 0%,
+      rgba(255, 255, 255, 0.1) 45%,
+      rgba(255, 255, 255, 0.07) 100%
+    ),
+    rgba(11, 15, 24, 0.62);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+
+  /* Thin luminous border, an inner glow along the top edge where the light
+     would catch, and a soft drop shadow lifting it off the map. */
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 0 42px rgba(255, 255, 255, 0.08),
+    0 24px 60px rgba(0, 0, 0, 0.5),
+    0 2px 10px rgba(0, 0, 0, 0.3);
+
+  color: rgba(255, 255, 255, 0.92);
+  animation: placard-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.popup__body {
+  overflow-y: auto;
+  padding: 1.9rem 1.9rem 1.6rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+/* Around one entry in twelve links to a Wikipedia page that no longer exists,
+   and some regions have no resolvable article at all — the whole Pacific Mo'o
+   belt, for one. Where that happens the images and the wiki card are simply not
+   rendered, so the prose becomes the last block; these rules take the trailing
+   margin off whatever ends up last, and the panel reads as finished rather than
+   as something that failed to load. */
+.popup__body > *:last-child,
+.popup__body > .prose:last-child > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Gentle scale-and-fade entrance. */
+@keyframes placard-in {
+  from {
+    opacity: 0;
+    transform: scale(0.965) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.popup__body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.popup__body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.22);
+  border-radius: 4px;
+}
+
+/* Reads as a key rather than a button, because Escape does the same thing and
+   the label is the hint. Sits in the corner the close control always occupied. */
+.popup__esc {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  min-width: 2.6rem;
+  padding: 0.3rem 0.55rem 0.34rem;
+  border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  border-bottom-width: 2px;
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.66);
+  font:
+    500 0.68rem/1 ui-monospace,
+    SFMono-Regular,
+    'SF Mono',
+    Menlo,
+    monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    transform 120ms ease;
+}
+
+.popup__esc:hover {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+/* Pressed like a key: the thicker bottom edge collapses. */
+.popup__esc:active {
+  transform: translateY(1px);
+  border-bottom-width: 1px;
+}
+
+.popup__esc:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.popup__name {
+  margin: 0 0 0.3rem;
+  padding-right: 2rem;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  color: #fff;
+  text-shadow: 0 1px 18px rgba(255, 255, 255, 0.25);
+}
+
+.popup__era {
+  margin: 0 0 1.1rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.popup__range {
+  letter-spacing: 0.08em;
+  opacity: 0.72;
+}
+
+/* Compact index of the region's creatures. */
+.roll {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* Each name is also the control that narrows the panel to it. */
+.roll__item {
+  display: block;
+  padding: 0.2rem 0.6rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.71rem;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.roll__item:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: rgba(255, 255, 255, 0.96);
+}
+
+/* The one the panel below is currently about. Reads as lit rather than merely
+   selected, so it is obvious at a glance which name the entry belongs to. */
+.roll__item.is-focused {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.95);
+  color: rgba(14, 18, 28, 0.92);
+  box-shadow: 0 0 18px rgba(255, 255, 255, 0.25);
+}
+
+/* Creatures belonging to living traditions carry a warmer edge — a quiet cue
+   that these are held by people now, not relics. */
+.roll__item--living {
+  background: rgba(247, 180, 130, 0.12);
+  border-color: rgba(247, 180, 130, 0.38);
+  color: rgba(255, 214, 184, 0.95);
+}
+
+.roll__item--living:hover {
+  background: rgba(247, 180, 130, 0.22);
+  border-color: rgba(247, 180, 130, 0.6);
+  color: rgba(255, 226, 202, 1);
+}
+
+/* A living tradition keeps its warmth even when it is the focused one. */
+.roll__item--living.is-focused {
+  background: rgba(255, 214, 184, 0.94);
+  border-color: rgba(255, 226, 202, 0.98);
+  color: rgba(40, 22, 12, 0.92);
+  box-shadow: 0 0 18px rgba(247, 180, 130, 0.32);
+}
+
+/* The header for a single creature, sitting between the roll and its entry. */
+.focus {
+  margin: 0 0 1.15rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.focus__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.focus__name {
+  margin: 0;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: rgba(255, 255, 255, 0.96);
+}
+
+.focus__type {
+  margin: 0.15rem 0 0;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.focus__clear {
+  flex: none;
+  padding: 0.28rem 0.66rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 150ms ease,
+    border-color 150ms ease;
+}
+
+.focus__clear:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* The seed fact — the one line that is always true and always present, even
+   when nothing else about this creature resolves. */
+.focus__seed {
+  margin: 0.75rem 0 0;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.prose__text {
+  margin: 0 0 1.4rem;
+  font-size: 0.97rem;
+  line-height: 1.72;
+  letter-spacing: 0.003em;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* When the writing does not arrive, the panel says so in its own voice rather
+   than surfacing a request failure. Held inside a soft inset so it reads as a
+   deliberate part of the placard — a card awaiting its text — instead of an
+   error dropped into the middle of the prose. */
+.notice {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0 0 1.4rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.notice__text {
+  margin: 0;
+  font-size: 0.87rem;
+  line-height: 1.62;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.notice__retry {
+  flex: none;
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.86);
+  font: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.notice__retry:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Loading: a shimmer in the shape of the paragraph that is coming, so the
+   panel keeps its composure instead of flashing a spinner. */
+.shimmer {
+  display: grid;
+  gap: 0.62rem;
+  margin-bottom: 1.4rem;
+}
+
+.shimmer__line {
+  height: 0.6rem;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.07) 25%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.07) 75%
+  );
+  background-size: 220% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+.shimmer__line--short {
+  width: 52%;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 220% 0;
+  }
+  to {
+    background-position: -220% 0;
+  }
+}
+
+/* Images, framed like plates in a case. */
+.plates {
+  display: grid;
+  gap: 1.1rem;
+  margin: 0 0 1.4rem;
+}
+
+.plate__img {
+  display: block;
+  width: 100%;
+  /* Tall portrait scans would otherwise run to 800px and swallow the panel. */
+  max-height: 15rem;
+  object-fit: cover;
+  object-position: center 22%;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Attribution is a licensing requirement, so it is always present and always
+   legible — small and quiet, never hidden. */
+.plate__credit {
+  margin-top: 0.45rem;
+  font-size: 0.63rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.plate__credit a {
+  color: rgba(255, 255, 255, 0.72);
+  text-underline-offset: 2px;
+}
+
+.plate__credit a:hover {
+  color: #fff;
+}
+
+/* The doorway to going deeper — never a substitute for the prose above. */
+.wiki-card {
+  display: block;
+  padding: 0.85rem 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    transform 200ms ease;
+}
+
+.wiki-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.34);
+  transform: translateY(-1px);
+}
+
+.wiki-card__label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.67rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.wiki-card__topic {
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.wiki-card__extract {
+  display: block;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup {
+    animation: none;
+  }
+
+  .shimmer__line {
+    animation: none;
+  }
+
+  .wiki-card:hover {
+    transform: none;
+  }
+}
+
+/* Narrow screens: the placard becomes a sheet along the bottom. */
+@media (max-width: 46rem) {
+  .popup {
+    top: auto;
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    width: auto;
+    max-height: 62vh;
+    padding: 1.4rem 1.4rem 1.2rem;
+  }
+
+  .popup__name {
+    font-size: 1.6rem;
+  }
+
+  .rail {
+    left: 0.9rem;
+  }
+
+  .legend {
+    display: none;
+  }
+}
+
+/* ---- Globe --------------------------------------------------------------- */
+
+.globe {
+  width: 100%;
+  height: 100%;
+  /* Deep space behind the shell, warming very slightly toward the centre so the
+     globe sits in a pool of light rather than on flat black. */
+  background:
+    radial-gradient(circle at 50% 45%, rgba(38, 74, 104, 0.35) 0%, transparent 62%), #05070d;
+  cursor: grab;
+  touch-action: none;
+}
+
+.globe:active {
+  cursor: grabbing;
+}
+
+.globe canvas {
+  display: block;
+}
+
+/* ---- Globe / flat map switch --------------------------------------------- */
+
+/* Everything on the right-hand end of the header. The group takes the auto
+   margin so the switch and the ambience button travel together — and so the
+   button still sits at the far right on a machine with no WebGL, where the
+   switch is not rendered at all. */
+.app__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+.view-switch {
+  display: flex;
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #30363d;
+  border-radius: 999px;
+}
+
+.view-switch__btn {
+  padding: 0.25rem 0.8rem;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  color: #8b949e;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.view-switch__btn.is-active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #f0f6fc;
+}
+
+/* ---- Ambience switch ------------------------------------------------------ */
+
+/* Understated on purpose: the sound is a passive thing, and a control that
+   announced itself would suggest there was something to manage. It brightens on
+   hover and dims when it is off, and that is the whole of its behaviour. */
+.ambience {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid #30363d;
+  border-radius: 999px;
+  color: #8b949e;
+  cursor: pointer;
+  transition:
+    color 180ms ease,
+    background 180ms ease,
+    opacity 180ms ease;
+}
+
+.ambience:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f0f6fc;
+}
+
+.ambience.is-muted {
+  color: #6e7681;
+  opacity: 0.7;
+}
+
+/* ---- The bestiary search ------------------------------------------------- */
+
+/* Sits at the bottom of the map, centred, and stays out of the way until it is
+   wanted. Glass like the placard but thinner and cooler — the placard is the
+   thing you read, this is the thing you reach through. */
+.finder {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  width: min(34rem, calc(100vw - 3rem));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.finder__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.62rem 0.9rem;
+  border-radius: 999px;
+
+  /* Almost translucent: the globe keeps showing through it, and the blur is
+     what separates the two rather than any solid fill. */
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.06) 60%,
+      rgba(255, 255, 255, 0.04) 100%
+    ),
+    rgba(10, 14, 22, 0.34);
+  backdrop-filter: blur(26px) saturate(170%);
+  -webkit-backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 12px 36px rgba(0, 0, 0, 0.42);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.finder__bar:focus-within {
+  border-color: rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 0 3px rgba(255, 255, 255, 0.06),
+    0 16px 44px rgba(0, 0, 0, 0.5);
+}
+
+.finder__glass {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1.9;
+  stroke-linecap: round;
+}
+
+.finder__input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  outline: none;
+  font: inherit;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+.finder__input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* The type="search" clear affordance is inconsistent across browsers, so the
+   component draws its own. */
+.finder__input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.finder__clear {
+  flex: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.finder__clear:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Results rise above the bar so the bar itself never moves. */
+.finder__results {
+  display: flex;
+  flex-direction: column;
+  max-height: min(24rem, 50vh);
+  overflow-y: auto;
+  padding: 0.4rem;
+  border-radius: 18px;
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.14) 0%,
+      rgba(255, 255, 255, 0.07) 55%,
+      rgba(255, 255, 255, 0.05) 100%
+    ),
+    rgba(10, 14, 22, 0.6);
+  backdrop-filter: blur(30px) saturate(175%);
+  -webkit-backdrop-filter: blur(30px) saturate(175%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 18px 48px rgba(0, 0, 0, 0.5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  animation: finder-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes finder-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.finding {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.finding.is-active {
+  background: rgba(255, 255, 255, 0.13);
+}
+
+.finding__top {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.finding__label {
+  font-size: 0.93rem;
+  color: #fff;
+}
+
+/* The region, when it is the only thing separating two identically named
+   creatures. Lighter than the name so the eye still reads the name first, but
+   inline with it so the difference registers before the row is chosen. */
+.finding__qualifier {
+  color: rgba(150, 200, 235, 0.85);
+  font-weight: 400;
+}
+
+.finding__type {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.finding__why {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.66);
+}
+
+.finding__where {
+  font-size: 0.71rem;
+  letter-spacing: 0.02em;
+  color: rgba(150, 200, 235, 0.82);
+}
+
+.finding__also {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.finder__state {
+  margin: 0;
+  padding: 0.7rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.finder__state--quiet {
+  padding-top: 0.2rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+/* On a narrow screen the legend and the search bar want the same strip of
+   floor. The legend yields — the search is the one you came to use. */
+@media (max-width: 40rem) {
+  .finder {
+    bottom: 0.9rem;
+    width: calc(100vw - 1.6rem);
+  }
+
+  .legend {
+    display: none;
+  }
+}
+
+/* ===========================================================================
+   The door
+   ---------------------------------------------------------------------------
+   A pane of glass laid over the globe, which is already turning behind it. The
+   blur is light on purpose — the world has to stay legible through the door, so
+   that opening it reads as stepping closer rather than loading a second page.
+   =========================================================================== */
+
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 2rem 1.5rem;
+  backdrop-filter: blur(7px) saturate(125%);
+  -webkit-backdrop-filter: blur(7px) saturate(125%);
+  transition:
+    backdrop-filter 900ms cubic-bezier(0.4, 0, 0.2, 1),
+    -webkit-backdrop-filter 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Darkened towards the edges and left clearer in the middle, so the globe reads
+   through the centre of the pane where the type is not sitting. */
+.intro__scrim {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    58% 58% at 50% 46%,
+    rgba(10, 14, 22, 0.42),
+    rgba(8, 11, 18, 0.86) 78%
+  );
+  transition: opacity 900ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reading the note wants a steadier background than looking at the door. */
+.intro.is-reading {
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+/* The door widening: the glass clears, the scrim lifts, and the whole pane
+   scales very slightly towards the viewer as it goes. */
+.intro.is-opening {
+  backdrop-filter: blur(0) saturate(100%);
+  -webkit-backdrop-filter: blur(0) saturate(100%);
+  pointer-events: none;
+}
+
+.intro.is-opening .intro__scrim {
+  opacity: 0;
+}
+
+.intro.is-opening .intro__inner {
+  animation: door-open 900ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes door-open {
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+    filter: blur(6px);
+  }
+}
+
+.intro__inner {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  text-align: center;
+  animation: door-in 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes door-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.intro__title {
+  margin: 0;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: clamp(2.8rem, 8vw, 5rem);
+  font-weight: 500;
+  letter-spacing: -0.022em;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 2px 60px rgba(255, 255, 255, 0.28);
+}
+
+.intro__tagline {
+  margin: 0.35rem 0 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* ---- Author's note ------------------------------------------------------- */
+
+.note {
+  position: relative;
+  width: min(38rem, 100%);
+  max-height: calc(100vh - 5rem);
+  overflow-y: auto;
+  padding: 2.4rem 2.2rem 2rem;
+  border-radius: 22px;
+
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.17) 0%,
+      rgba(255, 255, 255, 0.09) 45%,
+      rgba(255, 255, 255, 0.06) 100%
+    ),
+    rgba(11, 15, 24, 0.66);
+  backdrop-filter: blur(34px) saturate(180%);
+  -webkit-backdrop-filter: blur(34px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    inset 0 0 46px rgba(255, 255, 255, 0.07),
+    0 26px 64px rgba(0, 0, 0, 0.5);
+
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+  animation: placard-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.note__title {
+  margin: 0 0 1.4rem;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 2rem;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  color: #fff;
+}
+
+.note__body p {
+  margin: 0 0 1.1rem;
+  font-size: 0.95rem;
+  line-height: 1.78;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.note__body p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Chrome, held back until the door is open ---------------------------- */
+
+/* The globe is live from the first frame; everything drawn around it waits, so
+   the door has nothing competing with it. */
+.app__header,
+.rail,
+.legend,
+.finder {
+  opacity: 0;
+  transition:
+    opacity 700ms ease 260ms,
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1) 260ms;
+  pointer-events: none;
+}
+
+.app__header {
+  transform: translateY(-8px);
+}
+.rail {
+  transform: translate(-10px, -50%);
+}
+.legend {
+  transform: translateY(8px);
+}
+.finder {
+  transform: translate(-50%, 10px);
+}
+
+.app--revealed .app__header,
+.app--revealed .rail,
+.app--revealed .legend,
+.app--revealed .finder {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app--revealed .app__header {
+  transform: none;
+}
+.app--revealed .rail {
+  transform: translateY(-50%);
+}
+.app--revealed .legend {
+  transform: none;
+}
+.app--revealed .finder {
+  transform: translateX(-50%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro__scrim,
+  .intro__inner,
+  .enter__edge,
+  .enter__wash,
+  .intro__mark,
+  .note,
+  .app__header,
+  .rail,
+  .legend,
+  .finder {
+    animation: none !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ---- The mark ------------------------------------------------------------ */
+
+/* Visible only to assistive technology — the logo carries the name visually,
+   but the page still needs a real heading. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app__brand {
+  margin: 0;
+  font-size: 0;
+  line-height: 0;
+}
+
+.app__home {
+  display: block;
+  padding: 0;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  /* A white disc on a dark bar is a lot of contrast for something this small,
+     so it sits back until it is wanted. */
+  opacity: 0.82;
+  transition:
+    opacity 220ms ease,
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    filter 320ms ease;
+}
+
+.app__home:hover {
+  opacity: 1;
+  transform: scale(1.06);
+  filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.35));
+}
+
+.app__home:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 3px;
+}
+
+.app__logo {
+  display: block;
+  width: 30px;
+  height: 30px;
+}
+
+/* ---- The mark on the door ------------------------------------------------ */
+
+.intro__mark {
+  width: 84px;
+  height: 84px;
+  margin-bottom: 1.15rem;
+  /* The disc is pure white; on the dark pane it wants holding back a little so
+     the wordmark under it still leads. */
+  opacity: 0.94;
+  filter: drop-shadow(0 6px 34px rgba(255, 255, 255, 0.18));
+}
+
+@media (max-width: 40rem) {
+  .intro__mark {
+    width: 62px;
+    height: 62px;
+    margin-bottom: 0.9rem;
+  }
+}
+
+/* ---- Corner control (About, and Back on the note) ------------------------ */
+
+/* One control in one place: the top-right corner holds whatever backs you out
+   of the layer you are on. */
+.intro__corner {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.6rem;
+  z-index: 2;
+  padding: 0.4rem 1.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease;
+}
+
+.intro__corner:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.45);
+  color: #fff;
+}
+
+/* On the note the control scrolls with the card rather than the viewport. */
+.note__back {
+  position: sticky;
+  top: 0;
+  float: right;
+  margin: -0.6rem -0.6rem 0 1rem;
+}
+
+.intro.is-opening .intro__corner {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+/* ---- Enter --------------------------------------------------------------- */
+
+/*
+  A slim capsule with a single point of light running the whole way round its
+  edge, so the door reads as lit rather than outlined. The light is a conic
+  gradient masked to the border; @property is what makes the angle animatable,
+  and where it is unsupported the capsule simply keeps its static rim.
+*/
+@property --enter-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.enter {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 2.4rem;
+  padding: 0.86rem 2.1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 12px 40px rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.9);
+  font: inherit;
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 320ms ease,
+    border-color 320ms ease,
+    box-shadow 420ms ease;
+}
+
+/* The travelling light. */
+.enter__edge {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--enter-angle),
+    transparent 0deg,
+    rgba(255, 255, 255, 0.05) 40deg,
+    rgba(255, 255, 255, 0.95) 72deg,
+    rgba(255, 255, 255, 0.05) 104deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: enter-travel 4.6s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes enter-travel {
+  to {
+    --enter-angle: 360deg;
+  }
+}
+
+.enter:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 18px 52px rgba(0, 0, 0, 0.42),
+    0 0 44px rgba(255, 255, 255, 0.1);
+}
+
+.enter:hover .enter__edge {
+  animation-duration: 2.1s;
+}
+
+.enter:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 4px;
+}
+
+.enter__text {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.enter__label {
+  font-size: 0.8rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  transition: letter-spacing 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.enter:hover .enter__label {
+  letter-spacing: 0.34em;
+}
+
+/* The arrow draws itself out on hover rather than sliding as a whole, so the
+   gesture reads as the way opening rather than a button nudging. */
+.enter__arrow {
+  width: 26px;
+  height: 8px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.enter__shaft {
+  stroke-dasharray: 18;
+  stroke-dashoffset: 11;
+  transition: stroke-dashoffset 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.enter__head {
+  transform: translateX(-6px);
+  transition: transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.enter:hover .enter__shaft {
+  stroke-dashoffset: 0;
+}
+
+.enter:hover .enter__head {
+  transform: none;
+}
+
+/* Opening: a wash blooms out of the capsule and takes the glass with it. */
+.enter__wash {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12rem;
+  height: 12rem;
+  margin: -6rem 0 0 -6rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.intro.is-opening .enter {
+  overflow: visible;
+  border-color: rgba(255, 255, 255, 0);
+  background: transparent;
+  box-shadow: none;
+  transition:
+    border-color 360ms ease,
+    background 360ms ease,
+    box-shadow 360ms ease;
+}
+
+.intro.is-opening .enter__wash {
+  animation: enter-bloom 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.intro.is-opening .enter__edge,
+.intro.is-opening .enter__text {
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+@keyframes enter-bloom {
+  0% {
+    transform: scale(0.2);
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(16);
+    opacity: 0;
+  }
+}
+
+/* ---- Two ways in --------------------------------------------------------- */
+
+.ways {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.9rem;
+  margin-top: 2.4rem;
+}
+
+/* The capsules already carry their own top margin from .enter; inside the row
+   the row owns the spacing instead. */
+.ways .enter {
+  margin-top: 0;
+  min-width: 11.5rem;
+  justify-content: center;
+}
+
+/* The game is the second thought, not the main door, so its light runs warmer
+   and a beat behind — the pair read as siblings rather than as a choice
+   between equals. */
+.enter--guess .enter__edge {
+  background: conic-gradient(
+    from var(--enter-angle),
+    transparent 0deg,
+    rgba(255, 214, 170, 0.05) 40deg,
+    rgba(255, 214, 170, 0.95) 72deg,
+    rgba(255, 214, 170, 0.05) 104deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  animation-delay: -2.3s;
+}
+
+.ways__hint {
+  margin: 1.15rem 0 0;
+  max-width: 26rem;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+@media (max-width: 30rem) {
+  .ways {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
+/* ===========================================================================
+   The guessing panel
+   =========================================================================== */
+
+.guess {
+  position: fixed;
+  top: 3.25rem;
+  right: 1.5rem;
+  z-index: 6;
+  width: min(23rem, calc(100vw - 3rem));
+  max-height: calc(100vh - 5rem);
+  /* The frame never scrolls — see the note in Guesser.tsx. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 20px;
+
+  background:
+    linear-gradient(
+      160deg,
+      rgba(255, 255, 255, 0.17) 0%,
+      rgba(255, 255, 255, 0.09) 45%,
+      rgba(255, 255, 255, 0.06) 100%
+    ),
+    rgba(11, 15, 24, 0.66);
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.44),
+    0 24px 60px rgba(0, 0, 0, 0.5);
+  color: rgba(255, 255, 255, 0.92);
+  animation: placard-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.guess__body {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.3rem 1.35rem 1.15rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.guess__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.85rem;
+}
+
+.guess__eyebrow {
+  margin: 0;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.guess__quit {
+  flex: none;
+  padding: 0;
+  border: none;
+  background: none;
+  color: rgba(255, 255, 255, 0.42);
+  font: inherit;
+  font-size: 0.7rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color 180ms ease;
+}
+
+.guess__quit:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* A fixed frame, so a portrait and a landscape plate do not make the whole
+   panel jump between rounds. */
+.guess__plate {
+  display: grid;
+  place-items: center;
+  height: 14rem;
+  border-radius: 13px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.34);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.guess__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: plate-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes plate-in {
+  from {
+    opacity: 0;
+    transform: scale(1.04);
+  }
+}
+
+.guess__loading {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.7);
+  animation: guess-spin 900ms linear infinite;
+}
+
+@keyframes guess-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.guess__failed {
+  margin: 0;
+  padding: 0 1.2rem;
+  text-align: center;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Attribution is a condition of showing the picture at all, so it stays put
+   through the round. The creature's own name is the one thing held back. */
+.guess__credit {
+  margin: 0.5rem 0 0;
+  font-size: 0.64rem;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.guess__credit a {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.guess__prompt {
+  margin: 0.9rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.guess__action {
+  margin-top: 0.9rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease;
+}
+
+.guess__action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.guess__action:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.guess__tally {
+  margin: 0.95rem 0 0;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+/* ---- The reveal ---------------------------------------------------------- */
+
+.verdict {
+  margin-top: 0.95rem;
+  animation: door-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.verdict__call {
+  margin: 0 0 0.7rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(224, 69, 58, 0.95);
+}
+
+.verdict.is-right .verdict__call {
+  color: rgba(120, 220, 150, 0.95);
+}
+
+.verdict__where {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.verdict__name {
+  margin: 0;
+  font-family:
+    'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: #fff;
+}
+
+.verdict__kind {
+  margin: 0.15rem 0 0.6rem;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.verdict__seed {
+  margin: 0 0 0.7rem;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  font-style: italic;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.verdict__homes {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: rgba(150, 200, 235, 0.85);
+}
+
+.verdict__distance {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* On a narrow screen the panel becomes a sheet along the bottom, the same way
+   the placard does. */
+@media (max-width: 46rem) {
+  .guess {
+    top: auto;
+    right: 0.75rem;
+    left: 0.75rem;
+    bottom: 0.75rem;
+    width: auto;
+    max-height: 62vh;
+  }
+
+  .guess__plate {
+    height: 9rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guess,
+  .guess__img,
+  .verdict,
+  .guess__loading {
+    animation: none !important;
+  }
+}

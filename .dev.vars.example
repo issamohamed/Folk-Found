@@ -1,0 +1,3 @@
+# Copy to .dev.vars (gitignored) for local `wrangler pages dev` runs.
+# In production set it with:  npx wrangler pages secret put GROQ_API_KEY
+GROQ_API_KEY=your_groq_api_key_here
