@@ -2,6 +2,10 @@ node_modules/
 dist/
 .wrangler/
 
+# Local editor tooling — a dev-server launch config, nothing the build or the
+# deploy reads.
+.claude/
+
 # Local secrets — the Groq key lives here in dev and in `wrangler pages secret`
 # in production. It must never reach the frontend bundle or the repo.
 .dev.vars
