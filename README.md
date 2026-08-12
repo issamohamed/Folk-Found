@@ -129,6 +129,3 @@ hash of the region code, so a place sounds the same every time it is opened and 
 from its neighbours. Clicking another region cross-fades; closing the panel fades out. The
 game stays silent, since a region's zone would hint at the answer.
 
-**No browser storage.** No `localStorage` or `sessionStorage` anywhere, including the
-ambience mute preference, which lives in memory for the session. Caching is KV,
-server-side.
