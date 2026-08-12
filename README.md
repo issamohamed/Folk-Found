@@ -1,131 +1,46 @@
 # Folk & Found
 
-An interactive map of world folklore. Every country and every US state is clickable, and
-every one of them has something waiting: the creatures rooted in that place, retold as
-prose, across four eras.
+An interactive 3D globe for exploring the myths and folklore of the entire world. Every country and every US state is clickable, and each one has something waiting: the creatures and legends rooted in that place, retold as prose, glowing on a heatmap by how rich its folklore runs, and shifting across four historical eras.
+<img width="1122" height="706" alt="Screenshot 2026-08-12 at 2 14 59 PM" src="https://github.com/user-attachments/assets/b15c3b25-7863-405f-a975-b0a464144c5f" />![Uploading Screenshot 2026-08-12 at 2.14.59 PM.png…]()
 
-`folklore.json` is the source of truth for the entire app — 294 regions, 415 creature
-entries, four eras, and the generation directive that shapes every written entry. Nothing
-in the UI invents or hardcodes folklore; it all renders from that file.
 
-## Running it
+**[Live demo →](https://folkfound.issamohamed.com/)**
+
+![Uploading Screenshot 2026-08-12 at 2.14.59 PM.png…]()
+
+
+## What it does
+
+- **A living heatmap of world folklore.** A shader-driven three.js globe where 294 regions glow by the depth of their folklore, from the Greek Gorgons to West Virginia's Mothman. Real borders are projected onto the sphere, and the region under your cursor lights up as you move.
+- **Travel through time.** A four-era toggle (Ancient → Modern) reshapes the whole map. Greece cools from a teeming red in antiquity to a quiet speck today, while modern America ignites with its cryptids and tall tales.
+- **Descriptions written on demand.** Click a region and a frosted-glass placard opens with an original, era-aware account, generated live and grounded strictly on curated facts, alongside illustration and a "read more" link pulled from Wikimedia and Wikipedia.
+- **Search by meaning, not spelling.** Ask for "a bird that brings storms" or "a shape-shifting water horse" and get the right answers, via a two-stage retrieval pipeline.
+- **Myth Guesser.** A built-in game deals you a folklore image with no name and asks you to place its origin on the globe, scored by real geographic distance to any of its homelands.
+- **Procedural regional ambience.** Clicking a region fades in a short instrumental phrase synthesized in the browser with the Web Audio API. No files, no network: the sound is derived from the region's musical zone, its folklore density, and the active era, so the heatmap becomes something you can hear.
+
+<img width="1190" height="905" alt="Screenshot 2026-08-12 at 2 15 44 PM" src="https://github.com/user-attachments/assets/f3868a59-3ddb-4025-9db9-1a70a3d4d62d" />
+
+
+## How it's built
+
+The whole app renders from a single hand-built dataset, `folklore.json`: **294 regions, 415 entries, four eras**, and the generation directive that shapes every written entry. Nothing in the UI invents or hardcodes folklore; it all flows from that file, and no region is ever empty.
+
+- **Frontend:** React, TypeScript, Vite. A three.js globe with custom vertex and fragment shaders for the density splotches, and a flat-map fallback so a browser without WebGL still works.
+- **Edge:** Cloudflare Pages and Workers with KV caching. Written entries come from Groq (Llama 3.3 70B); imagery and summaries from the Wikimedia and Wikipedia APIs.
+- **Audio:** Web Audio API synthesis, grouping the 294 regions into 15 musical zones seeded deterministically so each place sounds the same every time and different from its neighbours.
+
+The bundle is code-split so the globe engine only loads when needed, and no API key ever reaches the client.
+
+<img width="1034" height="702" alt="Screenshot 2026-08-12 at 2 19 17 PM" src="https://github.com/user-attachments/assets/bf76565d-3872-4f6f-8e44-06fced79c2de" />
+
+
+## Running locally
 
 ```bash
 npm install
-```
-
-Two processes. The Vite dev server serves the app with hot reload and proxies `/api/*` to
-the real Workers runtime, so local development exercises the actual endpoints and KV
-rather than a mock:
-
-```bash
 npm run dev
 ```
 
-```bash
-npm run build && npm run dev:api
-```
+Then open http://localhost:5173. The dev server proxies `/api/*` to the real Workers runtime, so local development exercises the actual endpoints rather than a mock.
 
-Then open http://localhost:5173.
-
-`npm run dev:api` serves `dist/`, so re-run `npm run build` after changing a Worker.
-
-### The Groq key
-
-Written entries come from Groq (Llama 3.3 70B) via the Worker. The key lives only there —
-never in the frontend bundle. Create `.dev.vars` in the project root yourself:
-
-```
-GROQ_API_KEY=your_key_here
-```
-
-It is git-ignored. Without it the API returns 503 and the panel falls back to showing the
-region's creatures and their seed facts, so clicking a region still tells you something.
-
-## Deploying
-
-Cloudflare Pages builds straight from this repository. Connect it under
-**Workers & Pages → Create → Pages → Connect to Git**, then set:
-
-| Setting                | Value           |
-| ---------------------- | --------------- |
-| Framework preset       | None            |
-| Build command          | `npm run build` |
-| Build output directory | `dist`          |
-
-Then, under the project's **Settings**:
-
-- **Variables and Secrets** — `NODE_VERSION` = `20`, and `GROQ_API_KEY` as a **Secret**.
-- **Bindings** — a KV namespace binding named `FOLKLORE_CACHE`. Create the namespace
-  first under **Storage & Databases → KV**.
-
-Set both for Production and Preview. `functions/` is picked up automatically as Pages
-Functions.
-
-Without the KV binding the API routes fail; without the Groq key they return 503 and the
-panel falls back to the region's creatures and seed facts. The regional ambience is
-client-side synthesis and needs neither.
-
-## How it fits together
-
-```
-folklore.json          the source of truth, at the project root
-  ├─ served to the browser at /folklore.json by a small Vite plugin,
-  │  so there is never a second copy to drift
-  └─ bundled into the Worker, which resolves creatures itself rather than
-     trusting the request body
-
-src/
-  components/Globe.tsx        three.js globe — icosahedron shell, starfield,
-                              additive density splotches at each centroid
-  components/WorldMap.tsx     flat map fallback; loads its own atlases
-  components/RegionPopup.tsx  the glass placard
-  components/AmbienceToggle.tsx  mute switch for the region ambience
-  data/densityScale.ts        the 1–5 colour ramp, shared by both views
-  data/regionCodes.ts         atlas ids → folklore region keys
-  hooks/useAmbience.ts        ties the ambience to the open panel
-  lib/ambience.ts             Web Audio synthesis: plan a phrase, play it
-  lib/ambienceZones.ts        the 294 regions grouped into 15 musical zones
-  lib/geo.ts                  lat/lng ↔ sphere coordinates
-
-functions/api/
-  describe.ts   Groq prose, cached in KV as `regionCode:era`
-  images.ts     Wikimedia Commons images with author and licence
-  wiki.ts       one-line Wikipedia summary for the "Read more" card
-```
-
-### Things worth knowing
-
-**Every region is reachable.** 294 regions, but the 50m atlas has no shape for 13 of them
-(Tuvalu, Tokelau, Scotland, Siberia, the French overseas départements…), and the US
-country shape is completely covered by the states layer even though `US` has its own
-data. Those regions get a centroid marker instead. The list is computed from the atlas at
-runtime, not hardcoded, and is verified: all 294 regions × 4 eras open with the correct
-name and creature count.
-
-**Density and entry count disagree on purpose.** `US`/medieval is density 2 with three
-entries. Density drives colour; the entry list drives content. Neither is derived from the
-other.
-
-**Attribution is a requirement, not decoration.** Images come from each article's
-editorially-chosen lead image rather than its raw file list — the raw list contains
-interface icons and, on some folklore articles, explicit historical art. Only
-Commons-hosted files are shown, since locally-hosted Wikipedia files are usually non-free,
-and every image carries its author and licence.
-
-**Sensitive entries stay sensitive.** 38 entries are flagged as living traditions of
-specific peoples. The Worker names them explicitly in the prompt with instructions to
-attribute them to their culture, write in the present tense, and describe no ritual
-specifics or anything held sacred. In the UI they carry a warmer border in the creature
-roll. This handling is intact at every layer.
-
-**Regional ambience is synthesised, not sampled.** Opening a region's panel fades in a
-short instrumental phrase built with the Web Audio API — no audio files, no network calls,
-nothing licensed. The phrase comes from three things the app already knows: the region's
-musical zone (one of fifteen, from its centroid and code), its density in the active era
-(density 1 is a single line, density 5 layers five voices), and the era itself, which
-changes the reverb and pace rather than the notes. Small melodic choices are seeded from a
-hash of the region code, so a place sounds the same every time it is opened and different
-from its neighbours. Clicking another region cross-fades; closing the panel fades out. The
-game stays silent, since a region's zone would hint at the answer.
-
+Written entries need a Groq key, which lives only in the Worker, never in the frontend. Create a git-ignored `.dev.vars` in the project root:
