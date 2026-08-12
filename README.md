@@ -1,13 +1,10 @@
 # Folk & Found
 
 An interactive 3D globe for exploring the myths and folklore of the entire world. Every country and every US state is clickable, and each one has something waiting: the creatures and legends rooted in that place, retold as prose, glowing on a heatmap by how rich its folklore runs, and shifting across four historical eras.
-<img width="1122" height="706" alt="Screenshot 2026-08-12 at 2 14 59 PM" src="https://github.com/user-attachments/assets/b15c3b25-7863-405f-a975-b0a464144c5f" />![Uploading Screenshot 2026-08-12 at 2.14.59 PM.png…]()
+<img width="1122" height="706" alt="Screenshot 2026-08-12 at 2 14 59 PM" src="https://github.com/user-attachments/assets/b15c3b25-7863-405f-a975-b0a464144c5f" />
 
 
 **[Live demo →](https://folkfound.issamohamed.com/)**
-
-![Uploading Screenshot 2026-08-12 at 2.14.59 PM.png…]()
-
 
 ## What it does
 
