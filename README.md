@@ -139,7 +139,3 @@ game stays silent, since a region's zone would hint at the answer.
 **No browser storage.** No `localStorage` or `sessionStorage` anywhere, including the
 ambience mute preference, which lives in memory for the session. Caching is KV,
 server-side.
-
-**Known data issue.** 32 of 415 entries link to Wikipedia pages that do not exist. See
-[DEAD_WIKI_LINKS.md](DEAD_WIKI_LINKS.md). `/api/wiki` falls back through a region's other
-creatures, so a card only disappears when every one of them is dead.
