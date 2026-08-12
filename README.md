@@ -44,34 +44,27 @@ region's creatures and their seed facts, so clicking a region still tells you so
 
 ## Deploying
 
-```bash
-npx wrangler kv namespace create FOLKLORE_CACHE
-```
-
-Put the returned id into `wrangler.toml`, then:
-
-```bash
-npx wrangler pages secret put GROQ_API_KEY
-```
-
-```bash
-npm run build && npx wrangler pages deploy dist
-```
-
-### From GitHub
-
-Cloudflare Pages can build straight from this repository instead. Connect it under
+Cloudflare Pages builds straight from this repository. Connect it under
 **Workers & Pages → Create → Pages → Connect to Git**, then set:
 
-| Setting                | Value                                               |
-| ---------------------- | --------------------------------------------------- |
-| Build command          | `npm run build`                                     |
-| Build output directory | `dist`                                              |
-| Node version           | `20` or newer (`NODE_VERSION` environment variable) |
+| Setting                | Value           |
+| ---------------------- | --------------- |
+| Framework preset       | None            |
+| Build command          | `npm run build` |
+| Build output directory | `dist`          |
 
-`functions/` is picked up automatically as Pages Functions. Add `GROQ_API_KEY` as an
-encrypted environment variable and bind the `FOLKLORE_CACHE` KV namespace under the
-project's **Settings → Functions**, for both Production and Preview.
+Then, under the project's **Settings**:
+
+- **Variables and Secrets** — `NODE_VERSION` = `20`, and `GROQ_API_KEY` as a **Secret**.
+- **Bindings** — a KV namespace binding named `FOLKLORE_CACHE`. Create the namespace
+  first under **Storage & Databases → KV**.
+
+Set both for Production and Preview. `functions/` is picked up automatically as Pages
+Functions.
+
+Without the KV binding the API routes fail; without the Groq key they return 503 and the
+panel falls back to the region's creatures and seed facts. The regional ambience is
+client-side synthesis and needs neither.
 
 ## How it fits together
 

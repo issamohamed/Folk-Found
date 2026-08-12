@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && tsc -p tsconfig.functions.json && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc -p tsconfig.functions.json",
-    "dev:api": "wrangler pages dev dist --port 8788",
+    "dev:api": "wrangler pages dev dist --port 8788 --kv FOLKLORE_CACHE --compatibility-date 2025-01-01",
     "sweep": "mkdir -p node_modules/.cache && esbuild scripts/sweep.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/sweep.mjs --log-level=warning && node node_modules/.cache/sweep.mjs"
   },
   "dependencies": {
